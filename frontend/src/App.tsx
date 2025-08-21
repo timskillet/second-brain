@@ -1,10 +1,15 @@
+import Header from "./components/Header";
+import Interface from "./components/Interface";
+import "./index.css";
+
 function App() {
   return (
-    <>
-      <h1 className="text-3xl font-bold underline text-blue-500">
-        Hello World
-      </h1>
-    </>
+    <div className="min-h-screen min-w-screen bg-gray-50">
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        <Interface />
+      </main>
+    </div>
   );
 }
 
