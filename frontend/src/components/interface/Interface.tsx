@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import MessageInput from "./MessageInput";
 import type { FileIndex, Message } from "../../types";
+import chatService from "../../services/chatService";
 
 interface InterfaceProps {
   fileIndex: FileIndex[];
@@ -31,7 +32,13 @@ const Interface: React.FC<InterfaceProps> = ({ fileIndex }) => {
     setMessages((prev) => [...prev, userMessage]);
 
     try {
-      const fullResponse = "Hello, how can I help you today?";
+      const fullResponse = await chatService.streamMessage(
+        messageText,
+        "user",
+        (token: string) => {
+          setStreamedResponse((prev) => prev + token);
+        }
+      );
 
       // Add AI message with complete response
       const aiMessage: Message = {
