@@ -10,7 +10,6 @@ const api = axios.create({
 const chatService = {
     async streamMessage(
         message: string,
-        userId: string,
         onToken?: (token: string) => void,
     ): Promise<string> {
         try {
