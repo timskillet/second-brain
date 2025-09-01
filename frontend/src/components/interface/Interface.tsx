@@ -34,7 +34,6 @@ const Interface: React.FC<InterfaceProps> = ({ fileIndex }) => {
     try {
       const fullResponse = await chatService.streamMessage(
         messageText,
-        "user",
         (token: string) => {
           setStreamedResponse((prev) => prev + token);
         }
@@ -98,14 +97,14 @@ const Interface: React.FC<InterfaceProps> = ({ fileIndex }) => {
               key={message.id}
               className={`p-3 rounded-lg ${
                 message.role === "user"
-                  ? "bg-blue-100 ml-8"
-                  : "bg-gray-100 mr-8"
-              } bg-primary`}
+                  ? "bg-hover ml-8 rounded-lg border border-gray-600"
+                  : "mr-8"
+              }`}
             >
-              <div className="font-medium text-sm text-gray-300 mb-1">
+              <div className="font-medium text-sm text-primary-text  mb-1">
                 {message.role === "user" ? "You" : "AI"}
               </div>
-              <div className="text-gray-300 font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
+              <div className="text-primary-text font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
                 {message.content}
               </div>
             </div>
@@ -113,9 +112,11 @@ const Interface: React.FC<InterfaceProps> = ({ fileIndex }) => {
 
           {/* Show streaming response */}
           {isStreaming && streamedResponse && (
-            <div className="p-3 rounded-lg bg-gray-100 mr-8">
-              <div className="font-medium text-sm text-gray-600 mb-1">AI</div>
-              <div className="text-gray-800 font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
+            <div className="p-3 rounded-lg bg-hover mr-8">
+              <div className="font-medium text-sm text-primary-text mb-1">
+                AI
+              </div>
+              <div className="text-primary-text  font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
                 {streamedResponse}
                 <span className="cursor">|</span>
               </div>

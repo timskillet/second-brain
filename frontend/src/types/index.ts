@@ -26,3 +26,8 @@ export interface FileIndex {
     name: string;
     path: string;
 }
+
+export interface Chat {
+    id: string;
+    name: string;
+}

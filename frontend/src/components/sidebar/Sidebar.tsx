@@ -11,8 +11,10 @@ import React, { useEffect, useRef, useState } from "react";
 import FileTree from "./FileTree";
 import FileModal from "./FileModal";
 import SettingsModal from "./SettingsModal";
+import ChatTab from "./ChatTab";
 import type { FileNode } from "../../types";
 import { fileSystemService } from "../../services/fileSystem";
+import type { Chat } from "../../types";
 
 interface SidebarProps {
   fileData: FileNode[];
@@ -20,13 +22,36 @@ interface SidebarProps {
   onRootDirectoryChange: (newDirectory: string) => void;
 }
 
+const dummyChats: Chat[] = [
+  { id: "1", name: "Chat 1" },
+  { id: "2", name: "Chat 2" },
+  { id: "3", name: "Chat 3" },
+  { id: "4", name: "Chat 4" },
+  { id: "5", name: "Chat 5" },
+  { id: "6", name: "Chat 6" },
+  { id: "7", name: "Chat 7" },
+  { id: "8", name: "Chat 8" },
+  { id: "9", name: "Chat 9" },
+  { id: "10", name: "Chat 10" },
+  { id: "11", name: "Chat 11" },
+  { id: "12", name: "Chat 12" },
+  { id: "13", name: "Chat 13" },
+  { id: "14", name: "Chat 14" },
+  { id: "15", name: "Chat 15" },
+  { id: "16", name: "Chat 16" },
+  { id: "17", name: "Chat 17" },
+  { id: "18", name: "Chat 18" },
+  { id: "19", name: "Chat 19" },
+  { id: "20", name: "Chat 20" },
+];
+
 const Sidebar = ({
   fileData,
   rootDirectory,
   onRootDirectoryChange,
 }: SidebarProps) => {
   const [open, setOpen] = useState(true);
-  const [chats, setChats] = useState([]);
+  const [chats, setChats] = useState<Chat[]>(dummyChats);
   const [fileHovering, setFileHovering] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
@@ -169,35 +194,36 @@ const Sidebar = ({
       <div
         className={`${
           open ? "w-64" : "w-16"
-        } bg-secondary h-screen flex flex-col transition-all duration-300 ease-in-out`}
+        } bg-secondary h-screen flex flex-col flex-[1_1_33%] min-h-0 transition-all duration-300 ease-in-out`}
       >
-        {/* Header with toggle button */}
-        <div
-          className={`flex items-center justify-between p-4 ${
-            !open && "justify-center"
-          }`}
-        >
+        <div className="flex flex-col flex-[1_1_33%] min-h-0 px-2">
+          {/* Header with toggle button */}
           <div
-            className={`${!open && "hidden"} text-white font-semibold text-lg`}
+            className={`flex items-center justify-between px-4 ${
+              !open && "justify-center"
+            }`}
           >
-            Menu
-          </div>
-
-          <div
-            onClick={() => setOpen(!open)}
-            className="flex justify-center items-center p-3 rounded-lg cursor-pointer hover:bg-hover 0 transition-colors duration-200 outline-none focus:outline-none focus:ring-0"
-          >
-            <PanelRight
-              size={24}
+            <div
               className={`${
-                open ? "rotate-180" : ""
-              } text-gray-300 transition-transform duration-300`}
-            />
-          </div>
-        </div>
+                !open && "hidden"
+              } text-white font-semibold text-lg`}
+            >
+              Menu
+            </div>
 
-        {/* Menu Items */}
-        <div className="flex-1 p-2">
+            <div
+              onClick={() => setOpen(!open)}
+              className="flex justify-center items-center p-3 rounded-lg cursor-pointer hover:bg-hover transition-colors duration-200 outline-none focus:outline-none focus:ring-0"
+            >
+              <PanelRight
+                size={24}
+                className={`${
+                  open ? "rotate-180" : ""
+                } text-gray-300 transition-transform duration-300`}
+              />
+            </div>
+          </div>
+          {/* Menu Items */}
           <div className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200">
             <Plus size={24} className="flex-shrink-0" />
             <span
@@ -254,18 +280,31 @@ const Sidebar = ({
         </div>
 
         {/* Chats */}
-        <div className={`flex-1 p-4 ${!open && "hidden"}`}>
-          <div className="text-gray-300 font-semibold text-xl">Chats</div>
+        <div
+          className={`${
+            !open && "hidden"
+          } flex flex-col flex-[1_1_33%] min-h-0 mb-4`}
+        >
+          <div className="text-gray-300 font-semibold text-xl mb-2 px-4">
+            Chats
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
+            {chats.map((chat) => (
+              <ChatTab key={chat.id} chatId={chat.id} chatName={chat.name} />
+            ))}
+          </div>
         </div>
 
         {/* Files */}
         <div
           onMouseEnter={() => setFileHovering(true)}
           onMouseLeave={() => setFileHovering(false)}
-          className={`flex-1 p-4 ${!open && "hidden"}`}
+          className={`${
+            !open && "hidden"
+          } flex flex-col flex-[1_1_33%] min-h-0`}
         >
           {/* File Header and Actions */}
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center mb-2 px-4">
             <div className="flex text-gray-300 font-semibold text-xl">
               Files
             </div>
@@ -291,13 +330,17 @@ const Sidebar = ({
               />
             </div>
           </div>
-          <FileTree
-            fileData={fileData}
-            onFileSelect={handleFileSelect}
-            onCreateFile={handleCreateFile}
-            onAction={handleContextMenuAction}
-            onRefresh={handleRefresh}
-          />
+
+          {/* Scrollable File Tree */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
+            <FileTree
+              fileData={fileData}
+              onFileSelect={handleFileSelect}
+              onCreateFile={handleCreateFile}
+              onAction={handleContextMenuAction}
+              onRefresh={handleRefresh}
+            />
+          </div>
         </div>
       </div>
 
