@@ -1,17 +1,169 @@
-import React, { useState } from "react";
 import {
   PanelRight,
   Plus,
   Search,
-  Upload,
   Settings,
-  Folder,
+  Upload,
   RefreshCcw,
+  Folder,
 } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import FileTree from "./FileTree";
+import FileModal from "./FileModal";
+import SettingsModal from "./SettingsModal";
+import type { FileNode } from "../../types";
+import { fileSystemService } from "../../services/fileSystem";
 
-function Sidebar() {
+interface SidebarProps {
+  fileData: FileNode[];
+  rootDirectory: string | null;
+  onRootDirectoryChange: (newDirectory: string) => void;
+}
+
+const Sidebar = ({
+  fileData,
+  rootDirectory,
+  onRootDirectoryChange,
+}: SidebarProps) => {
   const [open, setOpen] = useState(true);
+  const [chats, setChats] = useState([]);
   const [fileHovering, setFileHovering] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"file" | "directory">("directory");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    console.log(fileData);
+  }, [fileData]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFile(file);
+    }
+  };
+
+  const handleNewChat = () => {
+    console.log("New Chat");
+  };
+
+  const handleSearch = () => {
+    console.log("Search");
+  };
+
+  const handleUpload = async () => {
+    fileInputRef.current?.click();
+    console.log(uploadFile?.name);
+  };
+
+  const handleSettings = () => {
+    setIsSettingsModalOpen(true);
+    console.log("Settings");
+  };
+
+  const handleFileSelect = (node: FileNode) => {
+    setSelectedFile(node);
+  };
+
+  const handleCreateFile = async (
+    parentPath: string,
+    name: string,
+    isDirectory: boolean
+  ) => {
+    try {
+      setIsLoading(true);
+
+      if (isDirectory) {
+        // Create directory using file system service
+        await fileSystemService.createDirectory(`${parentPath}/${name}`);
+      } else {
+        // Create empty file using file system service
+        await fileSystemService.writeFile(`${parentPath}/${name}`, "");
+      }
+
+      // Refresh the file data from parent
+      if (onRootDirectoryChange) {
+        // This will trigger a refresh in the parent component
+        onRootDirectoryChange(rootDirectory || "");
+      }
+    } catch (error) {
+      console.error("Failed to create file:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const openCreateModal = (type: "file" | "directory") => {
+    if (type === "file") {
+      console.log("Opening file creation modal");
+    } else {
+      console.log("Opening directory creation modal");
+    }
+    setModalType(type);
+    setIsModalOpen(true);
+  };
+
+  const handleModalCreate = (name: string, isDirectory: boolean) => {
+    const parentPath = selectedFile?.item.is_directory
+      ? selectedFile.item.path
+      : selectedFile?.item.path?.split("/").slice(0, -1).join("/") || "/";
+    handleCreateFile(parentPath, name, isDirectory);
+  };
+
+  const handleContextMenuAction = async (action: string, item: FileNode) => {
+    try {
+      setIsLoading(true);
+
+      switch (action) {
+        case "delete":
+          await fileSystemService.deleteFile(item.item.path);
+          break;
+        case "rename":
+          // TODO: Implement rename functionality
+          console.log(`Renaming ${item.item.name}`);
+          break;
+        case "copy":
+          // TODO: Implement copy functionality
+          console.log(`Copying ${item.item.name}`);
+          break;
+        case "cut":
+          // TODO: Implement cut functionality
+          console.log(`Cutting ${item.item.name}`);
+          break;
+        default:
+          break;
+      }
+
+      // Refresh the file data after action
+      if (onRootDirectoryChange) {
+        onRootDirectoryChange(rootDirectory || "");
+      }
+    } catch (error) {
+      console.error(`Failed to perform action ${action}:`, error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    try {
+      setIsLoading(true);
+      // Refresh the file data from parent
+      if (onRootDirectoryChange) {
+        onRootDirectoryChange(rootDirectory || "");
+      }
+    } catch (error) {
+      console.error("Failed to refresh files:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="flex">
       <div
@@ -66,8 +218,17 @@ function Sidebar() {
               Search
             </span>
           </div>
-          <div className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200">
-            <input type="file" className="hidden" accept=".pdf,.txt,.csv,.md" />
+          <div
+            onClick={handleUpload}
+            className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200"
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+              accept=".pdf,.txt,.csv,.md"
+            />
             <Upload size={24} className="flex-shrink-0" />
             <span
               className={`${
@@ -77,7 +238,10 @@ function Sidebar() {
               Upload
             </span>
           </div>
-          <div className="flex items-center p-3 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200">
+          <div
+            onClick={handleSettings}
+            className="flex items-center p-3 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200"
+          >
             <Settings size={24} className="flex-shrink-0" />
             <span
               className={`${
@@ -112,22 +276,53 @@ function Sidebar() {
             >
               <Plus
                 size={24}
+                onClick={() => openCreateModal("file")}
                 className="cursor-pointer hover:bg-hover rounded-lg p-1 flex-shrink-0"
               />
               <Folder
                 size={24}
+                onClick={() => openCreateModal("directory")}
                 className="cursor-pointer hover:bg-hover rounded-lg p-1 flex-shrink-0"
               />
               <RefreshCcw
                 size={24}
+                onClick={handleRefresh}
                 className="cursor-pointer hover:bg-hover rounded-lg p-1 flex-shrink-0"
               />
             </div>
           </div>
+          <FileTree
+            fileData={fileData}
+            onFileSelect={handleFileSelect}
+            onCreateFile={handleCreateFile}
+            onAction={handleContextMenuAction}
+            onRefresh={handleRefresh}
+          />
         </div>
       </div>
+
+      {/* File Creation Modal */}
+      <FileModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onCreate={handleModalCreate}
+        selectedPath={
+          selectedFile?.item.is_directory
+            ? selectedFile.item.path
+            : selectedFile?.item.path?.split("/").slice(0, -1).join("/") || "/"
+        }
+        directory={modalType === "directory"}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        currentRootDirectory={rootDirectory}
+        onRootDirectoryChange={onRootDirectoryChange}
+      />
     </div>
   );
-}
+};
 
 export default Sidebar;
