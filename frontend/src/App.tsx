@@ -1,9 +1,19 @@
 import { useState } from "react";
+import Sidebar from "./components/sidebar/Sidebar";
+import Interface from "./components/interface/Interface";
 
 function App() {
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <h1 className="text-4xl text-blue-500 font-bold">Hello World</h1>
+    <div className="h-screen flex bg-primary">
+      {/* Sidebar */}
+      <div className="flex-shrink=0 bg-secondary">
+        <Sidebar />
+      </div>
+
+      {/* Interface */}
+      <div className="flex-1 bg-primary">
+        <Interface />
+      </div>
     </div>
   );
 }
