@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import Sidebar from "./components/sidebar/Sidebar";
 import Interface from "./components/interface/Interface";
-import type { FileIndex, FileNode } from "./types";
+import type { Chat, FileIndex, FileNode } from "./types";
 import { buildIndex } from "./utils";
 import { fileSystemService } from "./services/fileSystem";
+import { ChatProvider } from "./contexts/ChatProvider";
 import { getDefaultAppStructure } from "./utils/defaultStructure.ts";
 import { DEFAULT_PATHS } from "./config/defaultPaths";
+import chatService from "./services/chatService.ts";
 
 function App() {
   const [files, setFiles] = useState<FileNode[]>([]);
@@ -15,6 +17,8 @@ function App() {
   const [expandedDirectories, setExpandedDirectories] = useState<Set<string>>(
     new Set()
   );
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
 
   useEffect(() => {
     initializeApp();
@@ -50,6 +54,10 @@ function App() {
   const initializeApp = async () => {
     try {
       setIsLoading(true);
+
+      // Get chats
+      const chats = await chatService.getChats();
+      setChats(chats);
 
       // Check if we have a saved root directory
       const savedDir = localStorage.getItem("rootDirectory");
@@ -159,28 +167,34 @@ function App() {
   }
 
   return (
-    <div className="h-screen flex bg-primary">
-      {/* Sidebar */}
-      <div className="flex-shrink-0 bg-secondary">
-        <Sidebar
-          fileData={files}
-          rootDirectory={rootDirectory}
-          onRootDirectoryChange={(newDirectory) => {
-            setRootDirectory(newDirectory);
-            // Reload files from the new directory
-            fileSystemService.setRootDirectory(newDirectory);
-            fileSystemService
-              .scanProjectFiles()
-              .then((files) =>
-                setFiles(preserveExpansionState(files, expandedDirectories))
-              );
-          }}
-        />
+    <ChatProvider>
+      <div className="h-screen flex bg-primary">
+        {/* Sidebar */}
+        <div className="flex-shrink-0 bg-secondary">
+          <Sidebar
+            onChatSelect={(chatId) => {
+              setSelectedChat(chatId);
+            }}
+            chatData={chats}
+            fileData={files}
+            rootDirectory={rootDirectory}
+            onRootDirectoryChange={(newDirectory) => {
+              setRootDirectory(newDirectory);
+              // Reload files from the new directory
+              fileSystemService.setRootDirectory(newDirectory);
+              fileSystemService
+                .scanProjectFiles()
+                .then((files) =>
+                  setFiles(preserveExpansionState(files, expandedDirectories))
+                );
+            }}
+          />
+        </div>
+        <div className="flex-1 bg-primary">
+          <Interface chatId={selectedChat} fileIndex={fileIndex} />
+        </div>
       </div>
-      <div className="flex-1 bg-primary">
-        <Interface fileIndex={fileIndex} />
-      </div>
-    </div>
+    </ChatProvider>
   );
 }
 

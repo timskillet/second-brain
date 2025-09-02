@@ -4,9 +4,10 @@ import React, { useState } from "react";
 interface ChatTabProps {
   chatId: string;
   chatName: string;
+  onChatSelect: (chatId: string) => void;
 }
 
-function ChatTab({ chatId, chatName }: ChatTabProps) {
+function ChatTab({ chatId, chatName, onChatSelect }: ChatTabProps) {
   const [chatHovering, setChatHovering] = useState(false);
   const [ellipsisHovering, setEllipsisHovering] = useState(false);
 
@@ -15,6 +16,10 @@ function ChatTab({ chatId, chatName }: ChatTabProps) {
       onMouseEnter={() => setChatHovering(true)}
       onMouseLeave={() => setChatHovering(false)}
       key={chatId}
+      onClick={() => {
+        console.log("ChatTab: Selecting chat:", chatId);
+        onChatSelect(chatId);
+      }}
     >
       <div className="cursor-pointer">
         <div

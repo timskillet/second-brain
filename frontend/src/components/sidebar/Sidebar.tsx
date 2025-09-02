@@ -17,41 +17,22 @@ import { fileSystemService } from "../../services/fileSystem";
 import type { Chat } from "../../types";
 
 interface SidebarProps {
+  chatData: Chat[];
+  onChatSelect: (chatId: string) => void;
   fileData: FileNode[];
   rootDirectory: string | null;
   onRootDirectoryChange: (newDirectory: string) => void;
 }
 
-const dummyChats: Chat[] = [
-  { id: "1", name: "Chat 1" },
-  { id: "2", name: "Chat 2" },
-  { id: "3", name: "Chat 3" },
-  { id: "4", name: "Chat 4" },
-  { id: "5", name: "Chat 5" },
-  { id: "6", name: "Chat 6" },
-  { id: "7", name: "Chat 7" },
-  { id: "8", name: "Chat 8" },
-  { id: "9", name: "Chat 9" },
-  { id: "10", name: "Chat 10" },
-  { id: "11", name: "Chat 11" },
-  { id: "12", name: "Chat 12" },
-  { id: "13", name: "Chat 13" },
-  { id: "14", name: "Chat 14" },
-  { id: "15", name: "Chat 15" },
-  { id: "16", name: "Chat 16" },
-  { id: "17", name: "Chat 17" },
-  { id: "18", name: "Chat 18" },
-  { id: "19", name: "Chat 19" },
-  { id: "20", name: "Chat 20" },
-];
-
 const Sidebar = ({
+  chatData,
+  onChatSelect,
   fileData,
   rootDirectory,
   onRootDirectoryChange,
 }: SidebarProps) => {
   const [open, setOpen] = useState(true);
-  const [chats, setChats] = useState<Chat[]>(dummyChats);
+  const [chats, setChats] = useState<Chat[]>();
   const [fileHovering, setFileHovering] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
@@ -74,6 +55,7 @@ const Sidebar = ({
   };
 
   const handleNewChat = () => {
+    onChatSelect("");
     console.log("New Chat");
   };
 
@@ -224,7 +206,10 @@ const Sidebar = ({
             </div>
           </div>
           {/* Menu Items */}
-          <div className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200">
+          <div
+            onClick={handleNewChat}
+            className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200"
+          >
             <Plus size={24} className="flex-shrink-0" />
             <span
               className={`${
@@ -288,11 +273,18 @@ const Sidebar = ({
           <div className="text-gray-300 font-semibold text-xl mb-2 px-4">
             Chats
           </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
-            {chats.map((chat) => (
-              <ChatTab key={chat.id} chatId={chat.id} chatName={chat.name} />
-            ))}
-          </div>
+          {chats && (
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
+              {chats.map((chat) => (
+                <ChatTab
+                  key={chat.id}
+                  chatId={chat.id}
+                  chatName={chat.title}
+                  onChatSelect={onChatSelect}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Files */}
