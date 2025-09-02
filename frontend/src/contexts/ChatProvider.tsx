@@ -1,10 +1,5 @@
-import React, {
-  createContext,
-  useContext,
-  useReducer,
-  useEffect,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useReducer, useEffect } from "react";
+import type { ReactNode } from "react";
 import type { Chat, Message } from "../types";
 import chatService from "../services/chatService";
 
@@ -12,7 +7,7 @@ import chatService from "../services/chatService";
 interface ChatState {
   chats: Chat[];
   currentChat: Chat | null;
-  messages: Message[];
+  messages: Record<string, Message[]>;
   isLoading: boolean;
   error: string | null;
   isStreaming: boolean;
@@ -24,18 +19,18 @@ type ChatAction =
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_CHATS"; payload: Chat[] }
   | { type: "SET_CURRENT_CHAT"; payload: Chat | null }
-  | { type: "SET_MESSAGES"; payload: Message[] }
-  | { type: "ADD_MESSAGE"; payload: Message }
+  | { type: "SET_MESSAGES"; payload: { chatId: string; messages: Message[] } }
+  | { type: "ADD_MESSAGE"; payload: { chatId: string; message: Message } }
   | { type: "SET_STREAMING"; payload: boolean }
   | { type: "SET_STREAMED_RESPONSE"; payload: string }
   | { type: "CLEAR_STREAMED_RESPONSE" }
   | { type: "UPDATE_CHAT_TITLE"; payload: { chatId: string; title: string } }
-  | { type: "REMOVE_CHAT"; payload: string };
+  | { type: "REMOVE_CHAT"; payload: { chatId: string } };
 
 const initialState: ChatState = {
   chats: [],
   currentChat: null,
-  messages: [],
+  messages: {},
   isLoading: false,
   error: null,
   isStreaming: false,
@@ -53,9 +48,23 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "SET_CURRENT_CHAT":
       return { ...state, currentChat: action.payload };
     case "SET_MESSAGES":
-      return { ...state, messages: action.payload };
+      return {
+        ...state,
+        messages: {
+          [action.payload.chatId]: action.payload.messages,
+        },
+      };
     case "ADD_MESSAGE":
-      return { ...state, messages: [...state.messages, action.payload] };
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [action.payload.chatId]: [
+            ...state.messages[action.payload.chatId],
+            action.payload.message,
+          ],
+        },
+      };
     case "SET_STREAMING":
       return { ...state, isStreaming: action.payload };
     case "SET_STREAMED_RESPONSE":
@@ -76,13 +85,15 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             : state.currentChat,
       };
     case "REMOVE_CHAT":
+      const { [action.payload.chatId]: _, ...restMessages } = state.messages;
       return {
         ...state,
-        chats: state.chats.filter((chat) => chat.id !== action.payload),
+        chats: state.chats.filter((chat) => chat.id !== action.payload.chatId),
         currentChat:
-          state.currentChat?.id === action.payload ? null : state.currentChat,
-        messages:
-          state.currentChat?.id === action.payload ? [] : state.messages,
+          state.currentChat?.id === action.payload.chatId
+            ? null
+            : state.currentChat,
+        messages: restMessages,
       };
     default:
       return state;
@@ -139,7 +150,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
       const newChat = await chatService.createChat(title);
       dispatch({ type: "SET_CHATS", payload: [newChat, ...state.chats] });
       dispatch({ type: "SET_CURRENT_CHAT", payload: newChat });
-      dispatch({ type: "SET_MESSAGES", payload: [] });
+      dispatch({
+        type: "SET_MESSAGES",
+        payload: { chatId: newChat.id, messages: [] },
+      });
     } catch (error) {
       dispatch({
         type: "SET_ERROR",
@@ -157,10 +171,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
       dispatch({ type: "SET_ERROR", payload: null });
 
       const chatData = await chatService.getChat(chatId);
-      const chat = state.chats.find((c) => c.id === chatId) || chatData.chat;
+      const chat = state.chats.find((c) => c.id === chatId) || null;
 
       dispatch({ type: "SET_CURRENT_CHAT", payload: chat });
-      dispatch({ type: "SET_MESSAGES", payload: chatData.messages });
+      dispatch({
+        type: "SET_MESSAGES",
+        payload: { chatId, messages: chatData },
+      });
     } catch (error) {
       dispatch({
         type: "SET_ERROR",
@@ -193,12 +210,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
         timestamp: new Date().toISOString(),
         user_id: "user",
       };
-      dispatch({ type: "ADD_MESSAGE", payload: userMessage });
+      dispatch({
+        type: "ADD_MESSAGE",
+        payload: { chatId: state.currentChat.id, message: userMessage },
+      });
 
       // Stream AI response
       const fullResponse = await chatService.streamMessage(
-        state.currentChat.id,
-        state.currentChat.title,
         content,
         (token: string) => {
           dispatch({
@@ -217,7 +235,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
         timestamp: new Date().toISOString(),
         user_id: "assistant",
       };
-      dispatch({ type: "ADD_MESSAGE", payload: aiMessage });
+      dispatch({
+        type: "ADD_MESSAGE",
+        payload: { chatId: state.currentChat.id, message: aiMessage },
+      });
       dispatch({ type: "CLEAR_STREAMED_RESPONSE" });
 
       // Refresh chats to update last message preview
@@ -247,22 +268,22 @@ export function ChatProvider({ children }: ChatProviderProps) {
   };
 
   const updateChatTitle = async (chatId: string, title: string) => {
-    //     try {
-    //       dispatch({ type: "SET_LOADING", payload: true });
-    //       dispatch({ type: "SET_ERROR", payload: null });
-    //       await chatService.updateChatTitle(chatId, title);
-    //       dispatch({ type: "UPDATE_CHAT_TITLE", payload: { chatId, title } });
-    //     } catch (error) {
-    //       dispatch({
-    //         type: "SET_ERROR",
-    //         payload:
-    //           error instanceof Error
-    //             ? error.message
-    //             : "Failed to update chat title",
-    //       });
-    //     } finally {
-    //       dispatch({ type: "SET_LOADING", payload: false });
-    //     }
+    //       try {
+    //         dispatch({ type: "SET_LOADING", payload: true });
+    //         dispatch({ type: "SET_ERROR", payload: null });
+    //         await chatService.updateChatTitle(chatId, title);
+    //         dispatch({ type: "UPDATE_CHAT_TITLE", payload: { chatId, title } });
+    //       } catch (error) {
+    //         dispatch({
+    //           type: "SET_ERROR",
+    //           payload:
+    //             error instanceof Error
+    //               ? error.message
+    //               : "Failed to update chat title",
+    //         });
+    //       } finally {
+    //         dispatch({ type: "SET_LOADING", payload: false });
+    //       }
   };
 
   const contextValue: ChatContextType = {

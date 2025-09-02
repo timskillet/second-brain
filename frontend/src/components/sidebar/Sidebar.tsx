@@ -17,12 +17,16 @@ import { fileSystemService } from "../../services/fileSystem";
 import type { Chat } from "../../types";
 
 interface SidebarProps {
+  chatData: Chat[];
+  onChatSelect: (chatId: string) => void;
   fileData: FileNode[];
   rootDirectory: string | null;
   onRootDirectoryChange: (newDirectory: string) => void;
 }
 
 const Sidebar = ({
+  chatData,
+  onChatSelect,
   fileData,
   rootDirectory,
   onRootDirectoryChange,
@@ -265,11 +269,18 @@ const Sidebar = ({
           <div className="text-gray-300 font-semibold text-xl mb-2 px-4">
             Chats
           </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
-            {chats.map((chat) => (
-              <ChatTab key={chat.id} chatId={chat.id} chatName={chat.name} />
-            ))}
-          </div>
+          {chats && (
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
+              {chats.map((chat) => (
+                <ChatTab
+                  key={chat.id}
+                  chatId={chat.id}
+                  chatName={chat.title}
+                  onChatSelect={onChatSelect}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Files */}

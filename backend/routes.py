@@ -27,11 +27,6 @@ def health():
 def chat(request: dict = Body(...)):
     """Chat endpoint"""
     try:
-        assert request.get("chat_id") is not None 
-        assert request.get("chat_title") is not None
-        assert request.get("message") is not None
-        assert request.get("created_at") is not None
-        
         chat_id = request.get("chat_id")
         chat_title = request.get("chat_title")
         message = request.get("message")
@@ -54,24 +49,28 @@ def chat(request: dict = Body(...)):
                     response += chunk
                     yield chunk
                 yield "\n[END]"
+                
+                # Add response to chat only if streaming was successful
+                if response:
+                    ai_message = {
+                        "id": str(uuid.uuid4()),
+                        "chat_id": chat_id,
+                        "role": "ai",
+                        "content": response,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    add_message(chat_id, ai_message)
+                    
             except Exception as e:
-                print(f"Error in chat endpoint: {e}")
+                print(f"Error in token_stream: {e}")
                 yield f"\n[ERROR] {str(e)}"
-
-            # Add response to chat
-            response = {
-                "id": str(uuid.uuid4()),
-                "chat_id": chat_id,
-                "role": "ai",
-                "content": response,
-                "timestamp": datetime.now().isoformat()
-            }
-            add_message(chat_id, response)
         
         return StreamingResponse(token_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
         print(f"Error in chat endpoint: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Chat History Routes
@@ -90,9 +89,8 @@ async def add_message(chat_id: str, message_data: dict = Body(...)):
         conn.close()
         return {"message_id": message_data["id"]}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
         print(f"Error in add_message endpoint: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chats")
 async def create_chat(chat_title: str):
@@ -109,9 +107,22 @@ async def create_chat(chat_title: str):
         conn.close()
         return {"chat_id": chat_id, "title": chat_title}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
         print(f"Error in create_chat endpoint: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.get("/chats")
+async def get_chats():
+    """Get all chats"""
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM chats")
+        chats = cursor.fetchall()
+        conn.close()
+        return {"chats": chats}
+    except Exception as e:
+        print(f"Error in get_chats endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/chats/{chat_id}")
 async def get_chat(chat_id: str):
@@ -127,9 +138,8 @@ async def get_chat(chat_id: str):
         conn.close()
         return {"chat_id": chat_id, "messages": chat}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
         print(f"Error in get_chat endpoint: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/chats/{chat_id}")
 async def delete_chat(chat_id: str):

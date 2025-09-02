@@ -4,15 +4,17 @@ import type { FileIndex, Message } from "../../types";
 import chatService from "../../services/chatService";
 
 interface InterfaceProps {
+  chatId: string | null;
   fileIndex: FileIndex[];
 }
 
-const Interface: React.FC<InterfaceProps> = ({ fileIndex }) => {
+const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamedResponse, setStreamedResponse] = useState<string>("");
   const [index, setIndex] = useState<FileIndex[]>(fileIndex);
+
   const handleStreamMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
 
@@ -27,6 +29,7 @@ const Interface: React.FC<InterfaceProps> = ({ fileIndex }) => {
       content: messageText,
       timestamp: new Date().toISOString(),
       user_id: "user",
+      chat_id: chatId || null,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -46,6 +49,7 @@ const Interface: React.FC<InterfaceProps> = ({ fileIndex }) => {
         content: fullResponse,
         timestamp: new Date().toISOString(),
         user_id: "assistant",
+        chat_id: chatId || null,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -59,6 +63,7 @@ const Interface: React.FC<InterfaceProps> = ({ fileIndex }) => {
         content: "Sorry, I encountered an error. Please try again.",
         timestamp: new Date().toISOString(),
         user_id: "assistant",
+        chat_id: chatId || null,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {

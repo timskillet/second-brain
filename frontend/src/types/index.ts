@@ -46,7 +46,7 @@ export interface ChatResponse {
 // Message interface
 export interface Message {
     id: string;
-    chat_id: string;
+    chat_id: string | null;
     role: 'user' | 'assistant';
     content: string;
     timestamp: string;
