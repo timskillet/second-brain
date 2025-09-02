@@ -55,6 +55,7 @@ const Sidebar = ({
   };
 
   const handleNewChat = () => {
+    onChatSelect("");
     console.log("New Chat");
   };
 
@@ -205,7 +206,10 @@ const Sidebar = ({
             </div>
           </div>
           {/* Menu Items */}
-          <div className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200">
+          <div
+            onClick={handleNewChat}
+            className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200"
+          >
             <Plus size={24} className="flex-shrink-0" />
             <span
               className={`${
