@@ -1,4 +1,10 @@
-import { createContext, useContext, useReducer, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useReducer,
+  useEffect,
+  useMemo,
+} from "react";
 import type { ReactNode } from "react";
 import type { Chat, Message } from "../types";
 import chatService from "../services/chatService";
@@ -191,12 +197,16 @@ export function ChatProvider({ children }: ChatProviderProps) {
   };
 
   const selectChat = async (chatId: string) => {
+    // Don't reload if messages are already loaded for this chat
+    if (state.messages[chatId]) {
+      return;
+    }
+
     try {
       dispatch({ type: "SET_LOADING", payload: true });
       dispatch({ type: "SET_ERROR", payload: null });
 
       const chatData = await chatService.getChat(chatId);
-      const chat = state.chats.find((c) => c.id === chatId) || null;
 
       dispatch({
         type: "SET_MESSAGES",
@@ -292,7 +302,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
     }
   };
 
-  const deleteChat = async (chatId: string) => {
+  const deleteChat = async (_chatId: string) => {
     //     try {
     //       dispatch({ type: 'SET_LOADING', payload: true });
     //       dispatch({ type: 'SET_ERROR', payload: null });
@@ -305,7 +315,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
     //     }
   };
 
-  const updateChatTitle = async (chatId: string, title: string) => {
+  const updateChatTitle = async (_chatId: string, _title: string) => {
     //       try {
     //         dispatch({ type: "SET_LOADING", payload: true });
     //         dispatch({ type: "SET_ERROR", payload: null });
@@ -324,16 +334,21 @@ export function ChatProvider({ children }: ChatProviderProps) {
     //       }
   };
 
-  const contextValue: ChatContextType = {
-    state,
-    actions: {
+  const actions = useMemo(
+    () => ({
       createChat,
       selectChat,
       sendMessage,
       deleteChat,
       updateChatTitle,
       loadChats,
-    },
+    }),
+    []
+  );
+
+  const contextValue: ChatContextType = {
+    state,
+    actions,
   };
 
   return (

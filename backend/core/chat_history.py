@@ -18,7 +18,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS messages (
             id TEXT PRIMARY KEY,
             chat_id TEXT NOT NULL,
-            role TEXT NOT NULL CHECK (role IN ('user', 'ai')),
+            role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
             content TEXT NOT NULL,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import MessageInput from "./MessageInput";
-import type { FileIndex, Message } from "../../types";
+import type { FileIndex } from "../../types";
 import { useChat } from "../../contexts/ChatProvider";
 
 interface InterfaceProps {
@@ -11,12 +11,15 @@ interface InterfaceProps {
 const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
   const { state, actions } = useChat();
   const [isLoading, setIsLoading] = useState(false);
-  const [index, setIndex] = useState<FileIndex[]>(fileIndex);
+  const [index] = useState<FileIndex[]>(fileIndex);
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatId);
 
-  // Update currentChatId when prop changes
+  // Update currentChatId when prop changes and load chat messages
   useEffect(() => {
     setCurrentChatId(chatId);
+    if (chatId) {
+      actions.selectChat(chatId);
+    }
   }, [chatId]);
 
   // Get messages and streaming state - this will automatically update when either
