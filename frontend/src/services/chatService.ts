@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { Chat, Message } from "../types";
 
 const api = axios.create({
     baseURL: "http://localhost:8002",
@@ -8,6 +9,47 @@ const api = axios.create({
 });
 
 const chatService = {
+    // Get all chats
+    async getChats(): Promise<Chat[]> {
+        try {
+            const response = await api.get<Chat[]>("/chats");
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching chats:", error);
+            throw new Error("Failed to fetch chats");
+        }
+    },
+
+    // Get specific chat with messages
+    async getChat(chatId: string): Promise<Message[]> {
+        try {
+            const response = await api.get<Message[]>(`/chats/${chatId}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching chat:", error);
+            throw new Error("Failed to fetch chat");
+        }
+    },
+
+    // Create new chat
+    async createChat(title: string): Promise<Chat> {
+        try {
+            const response = await api.post("/chats", null, {
+                params: { chat_title: title }
+            });
+            return {
+                id: response.data.chat_id,
+                title: response.data.chat_title,
+                created_at: response.data.created_at,
+                updated_at: response.data.updated_at,
+            }
+        } catch (error) {
+            console.error("Error creating chat:", error);
+            throw new Error("Failed to create chat");
+        }
+    },
+
+    // Stream message
     async streamMessage(
         message: string,
         onToken?: (token: string) => void,
