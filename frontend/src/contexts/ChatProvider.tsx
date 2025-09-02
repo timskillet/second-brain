@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
+import { createContext, useContext, useReducer, useEffect } from "react";
 import type { ReactNode } from "react";
 import type { Chat, Message } from "../types";
 import chatService from "../services/chatService";
@@ -6,35 +6,39 @@ import chatService from "../services/chatService";
 // ChatContext.tsx
 interface ChatState {
   chats: Chat[];
-  currentChat: Chat | null;
   messages: Record<string, Message[]>;
   isLoading: boolean;
   error: string | null;
-  isStreaming: boolean;
-  streamedResponse: string;
+  chatStreams: Record<
+    string,
+    {
+      isStreaming: boolean;
+      streamedResponse: string;
+    }
+  >;
 }
 
 type ChatAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_CHATS"; payload: Chat[] }
-  | { type: "SET_CURRENT_CHAT"; payload: Chat | null }
   | { type: "SET_MESSAGES"; payload: { chatId: string; messages: Message[] } }
   | { type: "ADD_MESSAGE"; payload: { chatId: string; message: Message } }
-  | { type: "SET_STREAMING"; payload: boolean }
-  | { type: "SET_STREAMED_RESPONSE"; payload: string }
-  | { type: "CLEAR_STREAMED_RESPONSE" }
+  | { type: "SET_STREAMING"; payload: { chatId: string; isStreaming: boolean } }
+  | {
+      type: "SET_STREAMED_RESPONSE";
+      payload: { chatId: string; streamedResponse: string };
+    }
+  | { type: "CLEAR_STREAMED_RESPONSE"; payload: { chatId: string } }
   | { type: "UPDATE_CHAT_TITLE"; payload: { chatId: string; title: string } }
   | { type: "REMOVE_CHAT"; payload: { chatId: string } };
 
 const initialState: ChatState = {
   chats: [],
-  currentChat: null,
   messages: {},
   isLoading: false,
   error: null,
-  isStreaming: false,
-  streamedResponse: "",
+  chatStreams: {},
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -45,8 +49,6 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, error: action.payload };
     case "SET_CHATS":
       return { ...state, chats: action.payload };
-    case "SET_CURRENT_CHAT":
-      return { ...state, currentChat: action.payload };
     case "SET_MESSAGES":
       return {
         ...state,
@@ -60,17 +62,44 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         messages: {
           ...state.messages,
           [action.payload.chatId]: [
-            ...state.messages[action.payload.chatId],
+            ...(state.messages[action.payload.chatId] || []),
             action.payload.message,
           ],
         },
       };
     case "SET_STREAMING":
-      return { ...state, isStreaming: action.payload };
+      return {
+        ...state,
+        chatStreams: {
+          ...state.chatStreams,
+          [action.payload.chatId]: {
+            ...state.chatStreams[action.payload.chatId],
+            isStreaming: action.payload.isStreaming,
+          },
+        },
+      };
     case "SET_STREAMED_RESPONSE":
-      return { ...state, streamedResponse: action.payload };
+      return {
+        ...state,
+        chatStreams: {
+          ...state.chatStreams,
+          [action.payload.chatId]: {
+            ...state.chatStreams[action.payload.chatId],
+            streamedResponse: action.payload.streamedResponse,
+          },
+        },
+      };
     case "CLEAR_STREAMED_RESPONSE":
-      return { ...state, streamedResponse: "" };
+      return {
+        ...state,
+        chatStreams: {
+          ...state.chatStreams,
+          [action.payload.chatId]: {
+            ...state.chatStreams[action.payload.chatId],
+            streamedResponse: "",
+          },
+        },
+      };
     case "UPDATE_CHAT_TITLE":
       return {
         ...state,
@@ -79,20 +108,12 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ? { ...chat, title: action.payload.title }
             : chat
         ),
-        currentChat:
-          state.currentChat?.id === action.payload.chatId
-            ? { ...state.currentChat, title: action.payload.title }
-            : state.currentChat,
       };
     case "REMOVE_CHAT":
       const { [action.payload.chatId]: _, ...restMessages } = state.messages;
       return {
         ...state,
         chats: state.chats.filter((chat) => chat.id !== action.payload.chatId),
-        currentChat:
-          state.currentChat?.id === action.payload.chatId
-            ? null
-            : state.currentChat,
         messages: restMessages,
       };
     default:
@@ -103,9 +124,9 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 interface ChatContextType {
   state: ChatState;
   actions: {
-    createChat: (title: string) => Promise<void>;
+    createChat: (title: string) => Promise<string | null>;
     selectChat: (chatId: string) => Promise<void>;
-    sendMessage: (content: string) => Promise<void>;
+    sendMessage: (content: string, chatId: string) => Promise<void>;
     deleteChat: (chatId: string) => Promise<void>;
     updateChatTitle: (chatId: string, title: string) => Promise<void>;
     loadChats: () => Promise<void>;
@@ -143,23 +164,27 @@ export function ChatProvider({ children }: ChatProviderProps) {
     }
   };
 
-  const createChat = async (title: string) => {
+  const createChat = async (title: string): Promise<string | null> => {
     try {
       dispatch({ type: "SET_LOADING", payload: true });
       dispatch({ type: "SET_ERROR", payload: null });
       const newChat = await chatService.createChat(title);
-      dispatch({ type: "SET_CHATS", payload: [newChat, ...state.chats] });
-      dispatch({ type: "SET_CURRENT_CHAT", payload: newChat });
+
+      const currentChats = Array.isArray(state.chats) ? state.chats : [];
+
+      dispatch({ type: "SET_CHATS", payload: [newChat, ...currentChats] });
       dispatch({
         type: "SET_MESSAGES",
         payload: { chatId: newChat.id, messages: [] },
       });
+      return newChat.id;
     } catch (error) {
       dispatch({
         type: "SET_ERROR",
         payload:
           error instanceof Error ? error.message : "Failed to create chat",
       });
+      return null;
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -173,7 +198,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
       const chatData = await chatService.getChat(chatId);
       const chat = state.chats.find((c) => c.id === chatId) || null;
 
-      dispatch({ type: "SET_CURRENT_CHAT", payload: chat });
       dispatch({
         type: "SET_MESSAGES",
         payload: { chatId, messages: chatData },
@@ -188,23 +212,25 @@ export function ChatProvider({ children }: ChatProviderProps) {
     }
   };
 
-  const sendMessage = async (content: string) => {
-    if (!state.currentChat) {
-      // Create new chat if none exists
-      const title = content.slice(0, 50) + (content.length > 50 ? "..." : "");
-      await createChat(title);
-      if (!state.currentChat) return;
-    }
-
+  const sendMessage = async (
+    content: string,
+    chatId: string
+  ): Promise<void> => {
     try {
-      dispatch({ type: "SET_STREAMING", payload: true });
-      dispatch({ type: "CLEAR_STREAMED_RESPONSE" });
+      dispatch({
+        type: "SET_STREAMING",
+        payload: { chatId: chatId, isStreaming: true },
+      });
+      dispatch({
+        type: "CLEAR_STREAMED_RESPONSE",
+        payload: { chatId: chatId },
+      });
       dispatch({ type: "SET_ERROR", payload: null });
 
       // Add user message immediately
       const userMessage: Message = {
         id: Date.now().toString(),
-        chat_id: state.currentChat.id,
+        chat_id: chatId,
         role: "user",
         content,
         timestamp: new Date().toISOString(),
@@ -212,16 +238,22 @@ export function ChatProvider({ children }: ChatProviderProps) {
       };
       dispatch({
         type: "ADD_MESSAGE",
-        payload: { chatId: state.currentChat.id, message: userMessage },
+        payload: { chatId: chatId, message: userMessage },
       });
 
       // Stream AI response
+      let accumulatedResponse = "";
       const fullResponse = await chatService.streamMessage(
+        chatId,
         content,
         (token: string) => {
+          accumulatedResponse += token;
           dispatch({
             type: "SET_STREAMED_RESPONSE",
-            payload: state.streamedResponse + token,
+            payload: {
+              chatId: chatId,
+              streamedResponse: accumulatedResponse,
+            },
           });
         }
       );
@@ -229,7 +261,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
       // Add AI message with complete response
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        chat_id: state.currentChat.id,
+        chat_id: chatId,
         role: "assistant",
         content: fullResponse,
         timestamp: new Date().toISOString(),
@@ -237,9 +269,12 @@ export function ChatProvider({ children }: ChatProviderProps) {
       };
       dispatch({
         type: "ADD_MESSAGE",
-        payload: { chatId: state.currentChat.id, message: aiMessage },
+        payload: { chatId: chatId, message: aiMessage },
       });
-      dispatch({ type: "CLEAR_STREAMED_RESPONSE" });
+      dispatch({
+        type: "CLEAR_STREAMED_RESPONSE",
+        payload: { chatId: chatId },
+      });
 
       // Refresh chats to update last message preview
       await loadChats();
@@ -250,7 +285,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
           error instanceof Error ? error.message : "Failed to send message",
       });
     } finally {
-      dispatch({ type: "SET_STREAMING", payload: false });
+      dispatch({
+        type: "SET_STREAMING",
+        payload: { chatId: chatId, isStreaming: false },
+      });
     }
   };
 

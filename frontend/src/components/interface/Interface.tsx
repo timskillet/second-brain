@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import MessageInput from "./MessageInput";
 import type { FileIndex, Message } from "../../types";
-import chatService from "../../services/chatService";
+import { useChat } from "../../contexts/ChatProvider";
 
 interface InterfaceProps {
   chatId: string | null;
@@ -9,73 +9,55 @@ interface InterfaceProps {
 }
 
 const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
+  const { state, actions } = useChat();
   const [isLoading, setIsLoading] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamedResponse, setStreamedResponse] = useState<string>("");
   const [index, setIndex] = useState<FileIndex[]>(fileIndex);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(chatId);
+
+  // Update currentChatId when prop changes
+  useEffect(() => {
+    setCurrentChatId(chatId);
+  }, [chatId]);
+
+  // Get messages and streaming state - this will automatically update when either
+  // currentChatId changes OR when ChatProvider state changes
+  const currentMessages = currentChatId
+    ? state.messages[currentChatId] || []
+    : [];
+  const currentChatStreams = currentChatId
+    ? state.chatStreams[currentChatId]
+    : null;
 
   const handleStreamMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
 
     setIsLoading(true);
-    setIsStreaming(true);
-    setStreamedResponse("");
-
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: messageText,
-      timestamp: new Date().toISOString(),
-      user_id: "user",
-      chat_id: chatId || null,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
 
     try {
-      const fullResponse = await chatService.streamMessage(
-        messageText,
-        (token: string) => {
-          setStreamedResponse((prev) => prev + token);
+      // Create new chat if none exists
+      let activeChatId = currentChatId;
+      if (!activeChatId) {
+        const title =
+          messageText.slice(0, 50) + (messageText.length > 50 ? "..." : "");
+        const newChatId = await actions.createChat(title);
+        if (!newChatId) {
+          throw new Error("Failed to create chat");
         }
-      );
-
-      // Add AI message with complete response
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: fullResponse,
-        timestamp: new Date().toISOString(),
-        user_id: "assistant",
-        chat_id: chatId || null,
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-      setStreamedResponse(""); // Clear streaming display
+        activeChatId = newChatId;
+        setCurrentChatId(newChatId);
+      }
+      await actions.sendMessage(messageText, activeChatId);
     } catch (error) {
       console.error("Error streaming message:", error);
-      // Add error message
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
-        timestamp: new Date().toISOString(),
-        user_id: "assistant",
-        chat_id: chatId || null,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
-      setIsStreaming(false);
     }
   };
 
   return (
     <div className="flex flex-col h-screen max-w-4xl mx-auto">
       {/* Welcome message - only show when no messages */}
-      {messages.length === 0 && (
+      {currentMessages.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
           <div className="bg-primary p-8 max-w-2xl text-center">
             <h2 className="text-2xl font-bold text-gray-300 mb-2">
@@ -92,12 +74,12 @@ const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
       {/* Chat history - takes up remaining space and scrolls */}
       <div
         className={`flex-1 overflow-y-auto ${
-          messages.length === 0 ? "hidden" : "block"
+          currentMessages.length === 0 ? "hidden" : "block"
         }`}
       >
         <div className="p-6 space-y-4">
           {/* Display messages */}
-          {messages.map((message) => (
+          {currentMessages.map((message) => (
             <div
               key={message.id}
               className={`p-3 rounded-lg ${
@@ -106,7 +88,7 @@ const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
                   : "mr-8"
               }`}
             >
-              <div className="font-medium text-sm text-primary-text  mb-1">
+              <div className="font-medium text-sm text-primary-text mb-1">
                 {message.role === "user" ? "You" : "AI"}
               </div>
               <div className="text-primary-text font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
@@ -116,17 +98,18 @@ const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
           ))}
 
           {/* Show streaming response */}
-          {isStreaming && streamedResponse && (
-            <div className="p-3 rounded-lg bg-hover mr-8">
-              <div className="font-medium text-sm text-primary-text mb-1">
-                AI
+          {currentChatStreams?.isStreaming &&
+            currentChatStreams.streamedResponse && (
+              <div className="p-3 rounded-lg bg-hover mr-8">
+                <div className="font-medium text-sm text-primary-text mb-1">
+                  AI
+                </div>
+                <div className="text-primary-text font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
+                  {currentChatStreams.streamedResponse}
+                  <span className="cursor">|</span>
+                </div>
               </div>
-              <div className="text-primary-text  font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
-                {streamedResponse}
-                <span className="cursor">|</span>
-              </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
 

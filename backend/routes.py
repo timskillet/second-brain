@@ -23,8 +23,20 @@ def health():
     """Health check endpoint"""
     return {"ok": True, "status": "healthy"}
 
+@router.post("/chat/{chat_id}")
+async def chat(chat_id: str, request: dict = Body(...)):
+    """Chat endpoint"""
+    try:
+        message = request.get("message")
+        created_at = request.get("created_at")
+
+        return await chat({"chat_id": chat_id, "message": message, "created_at": created_at})
+    except Exception as e:
+        print(f"Error in chat endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/chat")
-def chat(request: dict = Body(...)):
+async def chat(request: dict = Body(...)):
     """Chat endpoint"""
     try:
         chat_id = request.get("chat_id")
@@ -40,7 +52,7 @@ def chat(request: dict = Body(...)):
             "content": message,
             "timestamp": created_at
         }
-        add_message(chat_id, user_message)
+        # await add_message(chat_id, user_message)
 
         async def token_stream():
             response = ""
@@ -99,13 +111,19 @@ async def create_chat(chat_title: str):
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         chat_id = str(uuid.uuid4())
+        now = datetime.now().isoformat()
         cursor.execute(
-            "INSERT INTO chats (id, title) VALUES (?, ?)",
-            (chat_id, chat_title)
+            "INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (chat_id, chat_title, now, now)
         )
         conn.commit()
         conn.close()
-        return {"chat_id": chat_id, "title": chat_title}
+        return {
+            "id": chat_id, 
+            "title": chat_title,
+            "created_at": now,
+            "updated_at": now
+        }
     except Exception as e:
         print(f"Error in create_chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -116,10 +134,23 @@ async def get_chats():
     try:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM chats")
-        chats = cursor.fetchall()
+        cursor.execute("SELECT id, title, created_at, updated_at FROM chats ORDER BY updated_at DESC")
+        rows = cursor.fetchall()
         conn.close()
-        return {"chats": chats}
+        
+        # Convert database rows to proper Chat objects
+        chats = []
+        for row in rows:
+            chat = {
+                "id": row[0],
+                "title": row[1], 
+                "created_at": row[2],
+                "updated_at": row[3]
+            }
+            chats.append(chat)
+        
+        print(f"Chats: {chats}")
+        return chats
     except Exception as e:
         print(f"Error in get_chats endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
