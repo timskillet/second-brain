@@ -13,14 +13,6 @@ export interface FileNode {
     isExpanded: boolean;
   }
 
-export interface Message {
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: string;
-    user_id: string;
-}
-
 export interface FileIndex {
     id: string;
     name: string;

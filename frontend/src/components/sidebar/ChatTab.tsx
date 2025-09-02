@@ -4,10 +4,11 @@ import React, { useState } from "react";
 interface ChatTabProps {
   chatId: string;
   chatName: string;
+  isSelected: boolean;
   onChatSelect: (chatId: string) => void;
 }
 
-function ChatTab({ chatId, chatName, onChatSelect }: ChatTabProps) {
+function ChatTab({ chatId, chatName, onChatSelect, isSelected }: ChatTabProps) {
   const [chatHovering, setChatHovering] = useState(false);
   const [ellipsisHovering, setEllipsisHovering] = useState(false);
 
@@ -23,8 +24,8 @@ function ChatTab({ chatId, chatName, onChatSelect }: ChatTabProps) {
     >
       <div className="cursor-pointer">
         <div
-          className={`flex justify-between p-2 items-center rounded-lg flex-1 ${
-            chatHovering && !ellipsisHovering && "bg-hover"
+          className={`flex justify-between p-2 mb-1 items-center rounded-lg flex-1 ${
+            ((chatHovering && !ellipsisHovering) || isSelected) && "bg-hover"
           }`}
         >
           <span className="flex-1 text-xl text-gray-300 truncate">

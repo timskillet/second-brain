@@ -14,7 +14,7 @@ import SettingsModal from "./SettingsModal";
 import ChatTab from "./ChatTab";
 import type { FileNode } from "../../types";
 import { fileSystemService } from "../../services/fileSystem";
-import type { Chat } from "../../types";
+
 import { useChat } from "../../contexts/ChatProvider";
 
 interface SidebarProps {
@@ -22,6 +22,7 @@ interface SidebarProps {
   fileData: FileNode[];
   rootDirectory: string | null;
   onRootDirectoryChange: (newDirectory: string) => void;
+  selectedChatId: string | null;
 }
 
 const Sidebar = ({
@@ -29,20 +30,21 @@ const Sidebar = ({
   fileData,
   rootDirectory,
   onRootDirectoryChange,
+  selectedChatId,
 }: SidebarProps) => {
   const [open, setOpen] = useState(true);
   const [fileHovering, setFileHovering] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"file" | "directory">("directory");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   // Get chats from ChatProvider
-  const { state, actions } = useChat();
+  const { state } = useChat();
   const chats = state.chats;
   console.log("Chats", chats);
 
@@ -60,10 +62,6 @@ const Sidebar = ({
   const handleNewChat = () => {
     onChatSelect("");
     console.log("New Chat");
-  };
-
-  const handleSearch = () => {
-    console.log("Search");
   };
 
   const handleUpload = async () => {
@@ -86,8 +84,6 @@ const Sidebar = ({
     isDirectory: boolean
   ) => {
     try {
-      setIsLoading(true);
-
       if (isDirectory) {
         // Create directory using file system service
         await fileSystemService.createDirectory(`${parentPath}/${name}`);
@@ -103,8 +99,6 @@ const Sidebar = ({
       }
     } catch (error) {
       console.error("Failed to create file:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -127,8 +121,6 @@ const Sidebar = ({
 
   const handleContextMenuAction = async (action: string, item: FileNode) => {
     try {
-      setIsLoading(true);
-
       switch (action) {
         case "delete":
           await fileSystemService.deleteFile(item.item.path);
@@ -155,22 +147,17 @@ const Sidebar = ({
       }
     } catch (error) {
       console.error(`Failed to perform action ${action}:`, error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleRefresh = async () => {
     try {
-      setIsLoading(true);
       // Refresh the file data from parent
       if (onRootDirectoryChange) {
         onRootDirectoryChange(rootDirectory || "");
       }
     } catch (error) {
       console.error("Failed to refresh files:", error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -284,6 +271,7 @@ const Sidebar = ({
                   chatId={chat.id}
                   chatName={chat.title}
                   onChatSelect={onChatSelect}
+                  isSelected={selectedChatId === chat.id}
                 />
               ))}
           </div>

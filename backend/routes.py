@@ -52,7 +52,7 @@ async def chat(request: dict = Body(...)):
             "content": message,
             "timestamp": created_at
         }
-        # await add_message(chat_id, user_message)
+        await add_message(chat_id, user_message)
 
         async def token_stream():
             response = ""
@@ -67,11 +67,11 @@ async def chat(request: dict = Body(...)):
                     ai_message = {
                         "id": str(uuid.uuid4()),
                         "chat_id": chat_id,
-                        "role": "ai",
+                        "role": "assistant",
                         "content": response,
                         "timestamp": datetime.now().isoformat()
                     }
-                    add_message(chat_id, ai_message)
+                    await add_message(chat_id, ai_message)
                     
             except Exception as e:
                 print(f"Error in token_stream: {e}")
@@ -92,10 +92,9 @@ async def add_message(chat_id: str, message_data: dict = Body(...)):
     try: 
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        messages = message_data["messages"]
-        cursor.executemany(
+        cursor.execute(
             "INSERT INTO messages (id, chat_id, role, content) VALUES (?, ?, ?, ?)",
-            messages
+            (message_data["id"], chat_id, message_data["role"], message_data["content"])
         )
         conn.commit()
         conn.close()
@@ -162,12 +161,26 @@ async def get_chat(chat_id: str):
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC",
+            "SELECT id, chat_id, role, content, timestamp FROM messages WHERE chat_id = ? ORDER BY timestamp ASC",
             (chat_id,)
         )
-        chat = cursor.fetchall()
+        rows = cursor.fetchall()
         conn.close()
-        return {"chat_id": chat_id, "messages": chat}
+        
+        # Convert database rows to proper Message objects
+        messages = []
+        for row in rows:
+            message = {
+                "id": row[0],
+                "chat_id": row[1],
+                "role": row[2],
+                "content": row[3],
+                "timestamp": row[4],
+                "user_id": "user" if row[2] == "user" else "assistant"
+            }
+            messages.append(message)
+        
+        return messages
     except Exception as e:
         print(f"Error in get_chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))

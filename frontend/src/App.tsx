@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "./components/sidebar/Sidebar";
 import Interface from "./components/interface/Interface";
-import type { Chat, FileIndex, FileNode } from "./types";
+import type { FileIndex, FileNode } from "./types";
 import { buildIndex } from "./utils";
 import { fileSystemService } from "./services/fileSystem";
 import { ChatProvider } from "./contexts/ChatProvider";
@@ -13,9 +13,7 @@ function App() {
   const [fileIndex, setFileIndex] = useState<FileIndex[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [rootDirectory, setRootDirectory] = useState<string | null>(null);
-  const [expandedDirectories, setExpandedDirectories] = useState<Set<string>>(
-    new Set()
-  );
+  const [expandedDirectories] = useState<Set<string>>(new Set());
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,18 +33,6 @@ function App() {
           ? preserveExpansionState(node.children, expandedPaths)
           : [],
     }));
-  };
-
-  const handleToggleDirectory = (path: string) => {
-    setExpandedDirectories((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(path)) {
-        newSet.delete(path);
-      } else {
-        newSet.add(path);
-      }
-      return newSet;
-    });
   };
 
   const initializeApp = async () => {
@@ -171,6 +157,7 @@ function App() {
             }}
             fileData={files}
             rootDirectory={rootDirectory}
+            selectedChatId={selectedChat}
             onRootDirectoryChange={(newDirectory) => {
               setRootDirectory(newDirectory);
               // Reload files from the new directory
