@@ -7,7 +7,6 @@ import { fileSystemService } from "./services/fileSystem";
 import { ChatProvider } from "./contexts/ChatProvider";
 import { getDefaultAppStructure } from "./utils/defaultStructure.ts";
 import { DEFAULT_PATHS } from "./config/defaultPaths";
-import chatService from "./services/chatService.ts";
 
 function App() {
   const [files, setFiles] = useState<FileNode[]>([]);
@@ -17,7 +16,6 @@ function App() {
   const [expandedDirectories, setExpandedDirectories] = useState<Set<string>>(
     new Set()
   );
-  const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,10 +52,6 @@ function App() {
   const initializeApp = async () => {
     try {
       setIsLoading(true);
-
-      // Get chats
-      const chats = await chatService.getChats();
-      setChats(chats);
 
       // Check if we have a saved root directory
       const savedDir = localStorage.getItem("rootDirectory");
@@ -175,7 +169,6 @@ function App() {
             onChatSelect={(chatId) => {
               setSelectedChat(chatId);
             }}
-            chatData={chats}
             fileData={files}
             rootDirectory={rootDirectory}
             onRootDirectoryChange={(newDirectory) => {

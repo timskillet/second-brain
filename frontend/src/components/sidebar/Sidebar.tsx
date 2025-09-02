@@ -15,9 +15,9 @@ import ChatTab from "./ChatTab";
 import type { FileNode } from "../../types";
 import { fileSystemService } from "../../services/fileSystem";
 import type { Chat } from "../../types";
+import { useChat } from "../../contexts/ChatProvider";
 
 interface SidebarProps {
-  chatData: Chat[];
   onChatSelect: (chatId: string) => void;
   fileData: FileNode[];
   rootDirectory: string | null;
@@ -25,14 +25,12 @@ interface SidebarProps {
 }
 
 const Sidebar = ({
-  chatData,
   onChatSelect,
   fileData,
   rootDirectory,
   onRootDirectoryChange,
 }: SidebarProps) => {
   const [open, setOpen] = useState(true);
-  const [chats, setChats] = useState<Chat[]>();
   const [fileHovering, setFileHovering] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
@@ -42,6 +40,11 @@ const Sidebar = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get chats from ChatProvider
+  const { state, actions } = useChat();
+  const chats = state.chats;
+  console.log("Chats", chats);
 
   useEffect(() => {
     console.log(fileData);
@@ -273,18 +276,17 @@ const Sidebar = ({
           <div className="text-gray-300 font-semibold text-xl mb-2 px-4">
             Chats
           </div>
-          {chats && (
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
-              {chats.map((chat) => (
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
+            {Array.isArray(chats) &&
+              chats.map((chat, index) => (
                 <ChatTab
-                  key={chat.id}
+                  key={index}
                   chatId={chat.id}
                   chatName={chat.title}
                   onChatSelect={onChatSelect}
                 />
               ))}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Files */}

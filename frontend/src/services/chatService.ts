@@ -38,8 +38,8 @@ const chatService = {
                 params: { chat_title: title }
             });
             return {
-                id: response.data.chat_id,
-                title: response.data.chat_title,
+                id: response.data.id,
+                title: response.data.title,
                 created_at: response.data.created_at,
                 updated_at: response.data.updated_at,
             }
@@ -51,16 +51,17 @@ const chatService = {
 
     // Stream message
     async streamMessage(
+        chatId: string,
         message: string,
         onToken?: (token: string) => void,
     ): Promise<string> {
         try {
-            const response = await fetch("http://localhost:8002/chat", {
+            const response = await fetch(`http://localhost:8002/chat/${chatId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ message }),
+                body: JSON.stringify({ message, created_at: new Date().toISOString() }),
             });
 
             if (!response.ok) {
