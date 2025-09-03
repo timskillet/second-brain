@@ -4,11 +4,11 @@ from config import MODEL_PATH
 
 llm = LlamaCpp(
     model_path=MODEL_PATH,
-    n_context=2048,
-    n_batch=256,
-    temperature=0.1,
-    max_tokens=512,
+    n_ctx=2048,     # User query + retrieved context + conversation history + system prompt
+    n_batch=256,        # Number of tokens to process in batch
+    temperature=0.1,    # Temperature for randomness in response generation
+    max_tokens=512,    # Maximum length of AI response
     verbose=True,
-    streaming=True,
+    streaming=True,     # Stream the response
     callback_manager=[StdOutCallbackHandler()],
 )
