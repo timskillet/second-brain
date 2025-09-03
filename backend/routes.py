@@ -7,7 +7,7 @@ from core.llm import llm
 from fastapi.responses import StreamingResponse
 from core.chain import chain
 import sqlite3
-from config import DB_FILE
+from config import CHAT_HISTORY_DB_FILE
 import uuid
 from datetime import datetime
 
@@ -90,7 +90,7 @@ async def chat(request: dict = Body(...)):
 async def add_message(chat_id: str, message_data: dict = Body(...)):
     """Add a message to a chat"""
     try: 
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
         cursor.execute(
             "INSERT INTO messages (id, chat_id, role, content) VALUES (?, ?, ?, ?)",
@@ -107,7 +107,7 @@ async def add_message(chat_id: str, message_data: dict = Body(...)):
 async def create_chat(chat_title: str):
     """Create a new chat"""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
         chat_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
@@ -131,7 +131,7 @@ async def create_chat(chat_title: str):
 async def get_chats():
     """Get all chats"""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
         cursor.execute("SELECT id, title, created_at, updated_at FROM chats ORDER BY updated_at DESC")
         rows = cursor.fetchall()
@@ -158,7 +158,7 @@ async def get_chats():
 async def get_chat(chat_id: str):
     """Get specific chat with messages"""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT id, chat_id, role, content, timestamp FROM messages WHERE chat_id = ? ORDER BY timestamp ASC",

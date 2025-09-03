@@ -10,7 +10,7 @@ def test_rag_system():
     
     # Example: Add some documents to the knowledge base
     sample_files = [
-        "files/Tim Choy Resume.pdf",
+        "files/sample.txt",
     ]
     
     if sample_files:

@@ -4,7 +4,7 @@ from config import MODEL_PATH
 
 llm = LlamaCpp(
     model_path=MODEL_PATH,
-    n_ctx=2048,     # User query + retrieved context + conversation history + system prompt
+    n_ctx=4096,     # User query + retrieved context + conversation history + system prompt
     n_batch=256,        # Number of tokens to process in batch
     temperature=0.1,    # Temperature for randomness in response generation
     max_tokens=512,    # Maximum length of AI response

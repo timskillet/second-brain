@@ -37,36 +37,63 @@ You are a helpful assistant for a personal "second brain" system.
 
 Instructions:
 - Use the provided context to answer questions accurately
+- Consider the conversation history when providing responses
 - If context doesn't contain relevant information, say "I don't have information about that in my knowledge base"
 - Be concise and direct
 - Keep responses under 200 words
+- Reference previous parts of the conversation when relevant
 
-Context: {context}
-
-Question: {query}
+Context from knowledge base: {context}
 """
 
-# Create the prompt template
-rag_prompt = ChatPromptTemplate.from_messages([
-    ("system", RAG_SYSTEM_PROMPT),
-    ("human", "{query}")
-])
+# Create the prompt template that includes conversation history
+def create_rag_prompt(messages):
+    """Create a prompt template that includes conversation history"""
+    prompt_messages = [("system", RAG_SYSTEM_PROMPT)]
+    
+    # Add conversation history (excluding the last message which is the current query)
+    for i, message in enumerate(messages[:-1]):
+        if hasattr(message, 'content'):
+            role = "human" if i % 2 == 0 else "assistant"
+            prompt_messages.append((role, message.content))
+    
+    # Add the current query
+    if messages and hasattr(messages[-1], 'content'):
+        prompt_messages.append(("human", messages[-1].content))
+    
+    return ChatPromptTemplate.from_messages(prompt_messages)
 
 def retrieval_node(state: RAGState) -> RAGState:
-    """Retrieve relevant documents from the vector store"""
+    """Retrieve relevant documents from the vector store using conversation context"""
+    # Use the latest query
     query = state["messages"][-1].content
+    
+    # Create a more comprehensive search query using conversation context
+    if len(state["messages"]) > 1:
+        # Include recent conversation context for better retrieval
+        recent_messages = state["messages"][-3:]  # Last 3 messages for context
+        context_query = " ".join([msg.content for msg in recent_messages if hasattr(msg, 'content')])
+    else:
+        context_query = query
     
     # Create retriever from vector store
     retriever = vector_store.as_retriever(
         search_type="similarity",
-        search_kwargs={"k": 2}  # Retrieve top 2 most similar documents
+        search_kwargs={"k": 3}  # Retrieve top 3 most similar documents for better context
     )
     
-    # Retrieve documents
-    documents = retriever.invoke(query)
+    # Retrieve documents using the context-aware query
+    documents = retriever.invoke(context_query)
     
     # Format context from retrieved documents
     context = "\n\n".join([doc.page_content for doc in documents])
+
+    print("=================================== RETRIEVAL NODE ===================================")
+    print({
+        "query": query,
+        "documents": documents,
+        "context": context
+    })
     
     return {
         **state,
@@ -76,13 +103,15 @@ def retrieval_node(state: RAGState) -> RAGState:
     }
 
 def generation_node(state: RAGState) -> RAGState:
-    """Generate response using LLM with retrieved context"""
+    """Generate response using LLM with retrieved context and conversation history"""
+    # Create the dynamic prompt with conversation history
+    prompt = create_rag_prompt(state["messages"])
+    
     # Create the chain
-    chain = rag_prompt | llm | StrOutputParser()
+    chain = prompt | llm | StrOutputParser()
     
     # Generate response
     response = chain.invoke({
-        "query": state["query"],
         "context": state["context"]
     })
     
@@ -163,14 +192,28 @@ def add_documents_to_knowledge_base(file_paths: List[str]):
 
 # Function to query the RAG system
 def query_rag(app, query: str, thread_id: str = "default"):
-    """Query the RAG system"""
+    """Query the RAG system with conversation history"""
     config = {"configurable": {"thread_id": thread_id}}
     
-    # Create initial state
+    # Get existing conversation history for this thread
+    try:
+        existing_state = app.get_state(config)
+        if existing_state and existing_state.values and "messages" in existing_state.values:
+            # Use existing messages and add the new query
+            messages = existing_state.values["messages"] + [HumanMessage(content=query)]
+        else:
+            # Start fresh conversation
+            messages = [HumanMessage(content=query)]
+    except Exception as e:
+        print(f"Error retrieving conversation history: {e}")
+        # Fallback to fresh conversation
+        messages = [HumanMessage(content=query)]
+    
+    # Create initial state with conversation history
     initial_state = {
-        "messages": [HumanMessage(content=query)],
+        "messages": messages,
         "documents": [],
-        "query": "",
+        "query": query,
         "context": "",
         "response": ""
     }

@@ -1,10 +1,10 @@
 import sqlite3
-from config import DB_FILE
+from config import CHAT_HISTORY_DB_FILE
 import os
 
 def init_db():
-    os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
-    conn = sqlite3.connect(DB_FILE)
+    os.makedirs(os.path.dirname(CHAT_HISTORY_DB_FILE), exist_ok=True)
+    conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS chats (
