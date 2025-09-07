@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+langchain
+langchain-core
+langgraph
+chromadb
+sentence-transformers
+transformers
+torch
+pydantic
+sqlite3
+aiosqlite

@@ -19,5 +19,6 @@ def chat_node(state):
 graph.add_edge(START, "chat_node")
 graph.add_edge("chat_node", END)
 conn = sqlite3.connect("data/chat_memory.db", check_same_thread=False)
-checkpointer = SqliteSaver(conn)
-app = graph.compile(checkpointer=checkpointer)
+
+with SqliteSaver(conn) as checkpointer:
+    app = graph.compile(checkpointer=checkpointer)

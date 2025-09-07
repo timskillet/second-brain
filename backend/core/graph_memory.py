@@ -1,8 +1,9 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain.memory import ConversationBufferMemory
 from core.llm import llm
 from typing import List, TypedDict
-from langchain_core.messages import BaseMessage, AIMessage
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langgraph.graph import StateGraph, START, END
 
 SYSTEM_PROMPT = """
@@ -25,13 +26,19 @@ class LLMState(TypedDict):
     messages: List[BaseMessage]
     query: str
     response: str
+    memory: ConversationBufferMemory
 
 async def generate_node(state: LLMState):
-    """Generate response using LLM with streaming."""
+    """Generate response using LLM with streaming and conversation buffer memory."""
+    # Get conversation history from memory
+    memory_variables = state["memory"].load_memory_variables({})
+    conversation_history = memory_variables.get("history", [])
+    
+    # Create prompt with system message, conversation history, and current query
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", SYSTEM_PROMPT),
-            *state["messages"],
+            *conversation_history,
             ("human", state["query"]),
         ]
     )
@@ -45,10 +52,16 @@ async def generate_node(state: LLMState):
         # Yield each token for streaming
         yield token
 
+    # Save conversation to memory
+    state["memory"].save_context(
+        {"input": state["query"]}, 
+        {"output": response}
+    )
+
     # Yield the final state update
     yield {
         "response": response,
-        "messages": state["messages"] + [AIMessage(content=response)]
+        "messages": state["messages"] + [HumanMessage(content=state["query"]), AIMessage(content=response)]
     }
 
 def create_graph():
@@ -59,5 +72,26 @@ def create_graph():
 
     return graph.compile()
 
+def create_graph_with_memory():
+    """Create a graph with conversation buffer memory."""
+    graph = StateGraph(LLMState)
+    graph.add_node("generate", generate_node)
+    graph.add_edge(START, "generate")
+    graph.add_edge("generate", END)
+
+    return graph.compile()
+
+def create_memory():
+    """Create a new conversation buffer memory instance."""
+    return ConversationBufferMemory(
+        memory_key="history",
+        return_messages=True,
+        output_key="output"
+    )
+
+# Create the default graph
 graph = create_graph()
+
+# Create a graph with memory capability
+graph_with_memory = create_graph_with_memory()
 

@@ -5,11 +5,16 @@ FastAPI route definitions
 from fastapi import APIRouter, HTTPException, Body
 from core.llm import llm
 from fastapi.responses import StreamingResponse
-from core.chain import chain
 import sqlite3
 from config import CHAT_HISTORY_DB_FILE
 import uuid
 from datetime import datetime
+from core.rag_graph import rag_app, query_rag_stream, query_rag
+from langchain_core.messages import HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+import json
+from core.graph import graph
 
 router = APIRouter()
 
@@ -34,10 +39,10 @@ async def chat(chat_id: str, request: dict = Body(...)):
     except Exception as e:
         print(f"Error in chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/chat")
-async def chat(request: dict = Body(...)):
-    """Chat endpoint"""
+    
+@router.post("/chat/stream/{chat_id}")
+async def chat_stream(chat_id: str, request: dict = Body(...)):
+    """Chat stream endpoint"""
     try:
         chat_id = request.get("chat_id")
         chat_title = request.get("chat_title")
@@ -57,9 +62,16 @@ async def chat(request: dict = Body(...)):
         async def token_stream():
             response = ""
             try:
-                async for chunk in chain.astream({"query": message}):
-                    response += chunk
-                    yield chunk
+                async with rag_app.astream({"query": message}) as stream:
+                    async for chunk in stream:
+                        # Extract the response from the chunk
+                        if isinstance(chunk, dict) and "response" in chunk:
+                            response_chunk = chunk["response"]
+                            response += response_chunk
+                            yield response_chunk
+                        elif isinstance(chunk, str):
+                            response += chunk
+                            yield chunk
                 yield "\n[END]"
                 
                 # Add response to chat only if streaming was successful
@@ -83,7 +95,40 @@ async def chat(request: dict = Body(...)):
         print(f"Error in chat endpoint: {e}")
         print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/chat")
 
+@router.post("/chat")
+async def chat(request: dict = Body(...)):
+    """Query the RAG system with conversation history"""
+    thread_id = request.get("chat_id")
+    query = request.get("message")
+    input = {
+        "messages": [],
+        "query": query
+    }
+    
+    # Invoke the graph
+    async def token_stream(input: dict):
+        response = ""
+        try:
+            input_state = {
+                "messages": [],
+                "query": "Can you explain backend development?"
+            }
+
+            # Use astream_events to get detailed event stream
+            async for event in graph.astream_events(input_state, version="v2"):
+                if event["event"] == "on_parser_stream":
+                    chunk = event["data"].get("chunk")
+                    if isinstance(chunk, str):
+                        yield chunk
+
+        except Exception as e:
+            print(f"Error in token_stream: {e}")
+            yield f"event: error\ndata: [ERROR] {str(e)}\n\n"
+
+    return StreamingResponse(token_stream(input), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
 # Chat History Routes
 @router.post("/chats/{chat_id}/messages")
@@ -148,7 +193,6 @@ async def get_chats():
             }
             chats.append(chat)
         
-        print(f"Chats: {chats}")
         return chats
     except Exception as e:
         print(f"Error in get_chats endpoint: {e}")
