@@ -34,22 +34,18 @@ async def chat_endpoint(chat_id: str, request: dict = Body(...)):
         async def generate_stream():
                 try:
                     async for chunk in chat_stream(chat_id, message, None):
-                        if isinstance(chunk, dict):
-                            yield chunk['response']
-                        else:
+                        if isinstance(chunk, str):
                             yield chunk
                     # End of stream
                 except Exception as e:
                     print(f"Error in chat stream: {e}")
                     yield f"Error: {str(e)}"
+                yield "\n[END]"
         return StreamingResponse(
             generate_stream(), 
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*"
             }
         )
     except Exception as e:
