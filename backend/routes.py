@@ -35,17 +35,13 @@ async def chat_endpoint(chat_id: str, request: dict = Body(...)):
                 try:
                     async for chunk in chat_stream(chat_id, message, None):
                         if isinstance(chunk, dict):
-                            # Final response object
-                            if chunk.get("type") == "final_response":
-                                yield chunk['response']
+                            yield chunk['response']
                         else:
-                            # Streaming text chunk
                             yield chunk
                     # End of stream
                 except Exception as e:
                     print(f"Error in chat stream: {e}")
-                    yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-
+                    yield f"Error: {str(e)}"
         return StreamingResponse(
             generate_stream(), 
             media_type="text/event-stream",
@@ -128,7 +124,7 @@ async def get_chat(chat_id: str):
         conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, chat_id, role, content, timestamp FROM messages WHERE chat_id = ? ORDER BY timestamp ASC",
+            "SELECT id, chat_id, role, content, timestamp FROM chat_messages WHERE chat_id = ? ORDER BY timestamp ASC",
             (chat_id,)
         )
         rows = cursor.fetchall()
