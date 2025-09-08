@@ -1,9 +1,9 @@
 from langchain_chroma import Chroma
-from config import CHROMA_DB_FILE
 from core.embeddings import embeddings
 from core.document_loader import load_pdf, load_txt, load_csv, split_docs
 from typing import List
 import os
+from config import CHROMA_DB_FILE
 
 vector_store = Chroma(
     collection_name="second_brain",
@@ -12,7 +12,7 @@ vector_store = Chroma(
 )
 
 # Function to add documents to the knowledge base
-def add_documents_to_knowledge_base(file_paths: List[str]):
+def add_documents_to_knowledge_base(file_paths: List[str]) -> bool:
     """Add documents to the vector store"""
     all_documents = []
     
@@ -48,3 +48,5 @@ def add_documents_to_knowledge_base(file_paths: List[str]):
         print(f"Added {len(all_documents)} document chunks to knowledge base")
     else:
         print("No documents were added to the knowledge base")
+        return False
+    return True

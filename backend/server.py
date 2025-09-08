@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes import router
 from config import HOST, PORT, CORS_ORIGINS
 from core.chat_history import init_db
-from core.rag_api import router as rag_router
 
 # Initialize FastAPI app
 app = FastAPI(title="Second Brain Server", version="0.1.0")
@@ -22,7 +21,6 @@ app.add_middleware(
 
 # Include routes
 app.include_router(router)
-app.include_router(rag_router, prefix="/api/rag", tags=["RAG"])
 
 # ---------- Main Entrypoint ----------
 if __name__ == "__main__":

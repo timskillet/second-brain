@@ -3,3 +3,4 @@ files/
 models/
 data/
 __pycache__/
+*.pyc
