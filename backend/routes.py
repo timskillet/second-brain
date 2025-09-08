@@ -3,13 +3,14 @@ FastAPI route definitions
 """
 
 from fastapi import APIRouter, HTTPException, Body
-from core.llm import llm
 from fastapi.responses import StreamingResponse
-from core.chain import chain
 import sqlite3
-from config import DB_FILE
+from config import CHAT_HISTORY_DB_FILE
 import uuid
 from datetime import datetime
+import json
+from core.chat_history import save_message
+from core.chain import chat_stream
 
 router = APIRouter()
 
@@ -24,80 +25,47 @@ def health():
     return {"ok": True, "status": "healthy"}
 
 @router.post("/chat/{chat_id}")
-async def chat(chat_id: str, request: dict = Body(...)):
+async def chat_endpoint(chat_id: str, request: dict = Body(...)):
     """Chat endpoint"""
     try:
         message = request.get("message")
-        created_at = request.get("created_at")
-
-        return await chat({"chat_id": chat_id, "message": message, "created_at": created_at})
-    except Exception as e:
-        print(f"Error in chat endpoint: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/chat")
-async def chat(request: dict = Body(...)):
-    """Chat endpoint"""
-    try:
-        chat_id = request.get("chat_id")
-        chat_title = request.get("chat_title")
-        message = request.get("message")
-        created_at = request.get("created_at")
-
-        # Add message to chat
-        user_message = {
-            "id": str(uuid.uuid4()),
-            "chat_id": chat_id,
-            "role": "user",
-            "content": message,
-            "timestamp": created_at
-        }
-        await add_message(chat_id, user_message)
-
-        async def token_stream():
-            response = ""
-            try:
-                async for chunk in chain.astream({"query": message}):
-                    response += chunk
-                    yield chunk
-                yield "\n[END]"
-                
-                # Add response to chat only if streaming was successful
-                if response:
-                    ai_message = {
-                        "id": str(uuid.uuid4()),
-                        "chat_id": chat_id,
-                        "role": "assistant",
-                        "content": response,
-                        "timestamp": datetime.now().isoformat()
-                    }
-                    await add_message(chat_id, ai_message)
-                    
-            except Exception as e:
-                print(f"Error in token_stream: {e}")
-                yield f"\n[ERROR] {str(e)}"
         
-        return StreamingResponse(token_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
-    except Exception as e:
-        import traceback
-        print(f"Error in chat endpoint: {e}")
-        print(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Invoke the graph
+        async def generate_stream():
+                try:
+                    async for chunk in chat_stream(chat_id, message, None):
+                        if isinstance(chunk, dict):
+                            # Final response object
+                            if chunk.get("type") == "final_response":
+                                yield chunk['response']
+                        else:
+                            # Streaming text chunk
+                            yield chunk
+                    # End of stream
+                except Exception as e:
+                    print(f"Error in chat stream: {e}")
+                    yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
 
+        return StreamingResponse(
+            generate_stream(), 
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*"
+            }
+        )
+    except Exception as e:
+        print(f"Error in chat stream endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Chat History Routes
 @router.post("/chats/{chat_id}/messages")
 async def add_message(chat_id: str, message_data: dict = Body(...)):
     """Add a message to a chat"""
     try: 
-        conn = sqlite3.connect(DB_FILE)
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO messages (id, chat_id, role, content) VALUES (?, ?, ?, ?)",
-            (message_data["id"], chat_id, message_data["role"], message_data["content"])
-        )
-        conn.commit()
-        conn.close()
+        save_message(chat_id, message_data["role"], message_data["content"])
         return {"message_id": message_data["id"]}
     except Exception as e:
         print(f"Error in add_message endpoint: {e}")
@@ -107,7 +75,7 @@ async def add_message(chat_id: str, message_data: dict = Body(...)):
 async def create_chat(chat_title: str):
     """Create a new chat"""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
         chat_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
@@ -131,7 +99,7 @@ async def create_chat(chat_title: str):
 async def get_chats():
     """Get all chats"""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
         cursor.execute("SELECT id, title, created_at, updated_at FROM chats ORDER BY updated_at DESC")
         rows = cursor.fetchall()
@@ -148,7 +116,6 @@ async def get_chats():
             }
             chats.append(chat)
         
-        print(f"Chats: {chats}")
         return chats
     except Exception as e:
         print(f"Error in get_chats endpoint: {e}")
@@ -158,7 +125,7 @@ async def get_chats():
 async def get_chat(chat_id: str):
     """Get specific chat with messages"""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
         cursor.execute(
             "SELECT id, chat_id, role, content, timestamp FROM messages WHERE chat_id = ? ORDER BY timestamp ASC",

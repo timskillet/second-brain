@@ -14,4 +14,5 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 # Database configuration
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
-DB_FILE = os.getenv("DB_FILE", os.path.join(DATA_DIR, "chat_history.db"))
+CHAT_HISTORY_DB_FILE = os.getenv("CHAT_HISTORY_DB_FILE", os.path.join(DATA_DIR, "chat_history.db"))
+CHROMA_DB_FILE = os.getenv("CHROMA_DB_FILE", os.path.join(DATA_DIR, "chroma_db"))

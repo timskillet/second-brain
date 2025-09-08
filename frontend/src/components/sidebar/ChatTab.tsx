@@ -1,5 +1,5 @@
 import { Ellipsis } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 
 interface ChatTabProps {
   chatId: string;
