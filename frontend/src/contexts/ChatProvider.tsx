@@ -135,6 +135,7 @@ interface ChatContextType {
     sendMessage: (content: string, chatId: string) => Promise<void>;
     deleteChat: (chatId: string) => Promise<void>;
     updateChatTitle: (chatId: string, title: string) => Promise<void>;
+    duplicateChat: (chatId: string) => Promise<string | null>;
     loadChats: () => Promise<void>;
   };
 }
@@ -302,36 +303,77 @@ export function ChatProvider({ children }: ChatProviderProps) {
     }
   };
 
-  const deleteChat = async (_chatId: string) => {
-    //     try {
-    //       dispatch({ type: 'SET_LOADING', payload: true });
-    //       dispatch({ type: 'SET_ERROR', payload: null });
-    //       await chatService.deleteChat(chatId);
-    //       dispatch({ type: 'REMOVE_CHAT', payload: chatId });
-    //     } catch (error) {
-    //       dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to delete chat' });
-    //     } finally {
-    //       dispatch({ type: 'SET_LOADING', payload: false });
-    //     }
+  const deleteChat = async (chatId: string) => {
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "SET_ERROR", payload: null });
+      await chatService.deleteChat(chatId);
+      dispatch({ type: "REMOVE_CHAT", payload: { chatId } });
+    } catch (error) {
+      dispatch({
+        type: "SET_ERROR",
+        payload:
+          error instanceof Error ? error.message : "Failed to delete chat",
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
-  const updateChatTitle = async (_chatId: string, _title: string) => {
-    //       try {
-    //         dispatch({ type: "SET_LOADING", payload: true });
-    //         dispatch({ type: "SET_ERROR", payload: null });
-    //         await chatService.updateChatTitle(chatId, title);
-    //         dispatch({ type: "UPDATE_CHAT_TITLE", payload: { chatId, title } });
-    //       } catch (error) {
-    //         dispatch({
-    //           type: "SET_ERROR",
-    //           payload:
-    //             error instanceof Error
-    //               ? error.message
-    //               : "Failed to update chat title",
-    //         });
-    //       } finally {
-    //         dispatch({ type: "SET_LOADING", payload: false });
-    //       }
+  const updateChatTitle = async (chatId: string, title: string) => {
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "SET_ERROR", payload: null });
+      await chatService.updateChatTitle(chatId, title);
+      dispatch({ type: "UPDATE_CHAT_TITLE", payload: { chatId, title } });
+    } catch (error) {
+      dispatch({
+        type: "SET_ERROR",
+        payload:
+          error instanceof Error
+            ? error.message
+            : "Failed to update chat title",
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
+  const duplicateChat = async (chatId: string): Promise<string | null> => {
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "SET_ERROR", payload: null });
+
+      // Find the original chat
+      const originalChat = state.chats.find((chat) => chat.id === chatId);
+      if (!originalChat) {
+        throw new Error("Original chat not found");
+      }
+
+      const newChat = await chatService.duplicateChat(
+        chatId,
+        originalChat.title
+      );
+
+      // Add the new chat to the beginning of the list
+      const currentChats = Array.isArray(state.chats) ? state.chats : [];
+      dispatch({ type: "SET_CHATS", payload: [newChat, ...currentChats] });
+      dispatch({
+        type: "SET_MESSAGES",
+        payload: { chatId: newChat.id, messages: [] },
+      });
+
+      return newChat.id;
+    } catch (error) {
+      dispatch({
+        type: "SET_ERROR",
+        payload:
+          error instanceof Error ? error.message : "Failed to duplicate chat",
+      });
+      return null;
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
   };
 
   const actions = useMemo(
@@ -341,9 +383,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
       sendMessage,
       deleteChat,
       updateChatTitle,
+      duplicateChat,
       loadChats,
     }),
-    []
+    [state.chats]
   );
 
   const contextValue: ChatContextType = {

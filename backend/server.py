@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes import router
 from config import HOST, PORT, CORS_ORIGINS
-from core.chat_history import init_db
+from core.knowledge_base import init_db
 
 # Initialize FastAPI app
 app = FastAPI(title="Second Brain Server", version="0.1.0")

@@ -12,7 +12,7 @@ import FileTree from "./FileTree";
 import FileModal from "./FileModal";
 import SettingsModal from "./SettingsModal";
 import ChatTab from "./ChatTab";
-import type { FileNode } from "../../types";
+import type { FileNode, IngestedFile } from "../../types";
 import { fileSystemService } from "../../services/fileSystem";
 
 import { useChat } from "../../contexts/ChatProvider";
@@ -20,6 +20,7 @@ import { useChat } from "../../contexts/ChatProvider";
 interface SidebarProps {
   onChatSelect: (chatId: string) => void;
   fileData: FileNode[];
+  ingestedFiles: IngestedFile[];
   rootDirectory: string | null;
   onRootDirectoryChange: (newDirectory: string) => void;
   selectedChatId: string | null;
@@ -28,6 +29,7 @@ interface SidebarProps {
 const Sidebar = ({
   onChatSelect,
   fileData,
+  ingestedFiles,
   rootDirectory,
   onRootDirectoryChange,
   selectedChatId,
@@ -43,14 +45,9 @@ const Sidebar = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
-  // Get chats from ChatProvider
-  const { state } = useChat();
+  // Get chats and actions from ChatProvider
+  const { state, actions } = useChat();
   const chats = state.chats;
-  console.log("Chats", chats);
-
-  useEffect(() => {
-    console.log(fileData);
-  }, [fileData]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -158,6 +155,34 @@ const Sidebar = ({
       }
     } catch (error) {
       console.error("Failed to refresh files:", error);
+    }
+  };
+
+  {
+    /* Update Chat Title */
+  }
+  const handleUpdateChatTitle = async (chatId: string, newTitle: string) => {
+    await actions.updateChatTitle(chatId, newTitle);
+  };
+
+  {
+    /* Delete Chat */
+  }
+  const handleDeleteChat = async (chatId: string) => {
+    if (window.confirm("Are you sure you want to delete this chat?")) {
+      await actions.deleteChat(chatId);
+      // If the deleted chat was selected, clear selection
+      if (selectedChatId === chatId) {
+        onChatSelect("");
+      }
+    }
+  };
+
+  const handleDuplicateChat = async (chatId: string) => {
+    const newChatId = await actions.duplicateChat(chatId);
+    if (newChatId) {
+      // Select the new duplicated chat
+      onChatSelect(newChatId);
     }
   };
 
@@ -272,6 +297,9 @@ const Sidebar = ({
                   chatName={chat.title}
                   onChatSelect={onChatSelect}
                   isSelected={selectedChatId === chat.id}
+                  onRenameChat={handleUpdateChatTitle}
+                  onDeleteChat={handleDeleteChat}
+                  onDuplicateChat={handleDuplicateChat}
                 />
               ))}
           </div>
@@ -317,6 +345,7 @@ const Sidebar = ({
           <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
             <FileTree
               fileData={fileData}
+              ingestedFiles={ingestedFiles}
               onFileSelect={handleFileSelect}
               onCreateFile={handleCreateFile}
               onAction={handleContextMenuAction}

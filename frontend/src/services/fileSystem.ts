@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { FileNode } from '../types';
+import type { FileNode, IngestedFile } from '../types';
+import axios from 'axios';
 
 export class ElectronFileSystemService {
     private rootDirectory: string | null = null;
@@ -109,4 +110,43 @@ export class ElectronFileSystemService {
     }
 }
 
+export class IngestedFileSystemService {
+
+    private api = axios.create({
+        baseURL: "http://localhost:8002",
+        headers: {
+            "Content-Type": "application/json",
+        }
+    });
+
+    async getIngestedFiles(): Promise<IngestedFile[]> {
+        try {
+            const response = await this.api.get<IngestedFile[]>("/files");
+            return response.data;
+        } catch (error) {
+            console.error("Error creating chat:", error);
+            throw new Error("Failed to create chat");
+        }
+    }
+
+    async ingestFile(filePath: string): Promise<void> {
+        try {
+            await this.api.post("/files", { filePath });
+        } catch (error) {
+            console.error("Error ingesting file:", error);
+            throw new Error("Failed to ingest file");
+        }
+    }
+
+    async deleteFile(fileName: string): Promise<void> {
+        try {
+            await this.api.delete(`/files/${fileName}`);
+        } catch (error) {
+            console.error("Error deleting file:", error);
+            throw new Error("Failed to delete file");
+        }
+    }
+}
+
 export const fileSystemService = new ElectronFileSystemService();
+export const ingestedFileSystemService = new IngestedFileSystemService();

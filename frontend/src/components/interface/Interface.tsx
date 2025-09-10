@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from "react";
 import MessageInput from "./MessageInput";
-import type { FileIndex } from "../../types";
+import type { FileIndex, IngestedFile } from "../../types";
 import { useChat } from "../../contexts/ChatProvider";
 
 interface InterfaceProps {
   chatId: string | null;
   fileIndex: FileIndex[];
+  ingestedFiles: IngestedFile[];
 }
 
-const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
+const Interface: React.FC<InterfaceProps> = ({
+  chatId,
+  fileIndex,
+  ingestedFiles,
+}) => {
   const { state, actions } = useChat();
   const [isLoading, setIsLoading] = useState(false);
-  const [index] = useState<FileIndex[]>(fileIndex);
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatId);
 
   // Update currentChatId when prop changes and load chat messages
@@ -76,7 +80,7 @@ const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
 
       {/* Chat history - takes up remaining space and scrolls */}
       <div
-        className={`flex-1 overflow-y-auto ${
+        className={`flex-1 overflow-y-auto custom-scrollbar ${
           currentMessages.length === 0 ? "hidden" : "block"
         }`}
       >
@@ -117,11 +121,12 @@ const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
       </div>
 
       {/* Message input - fixed at bottom */}
-      <div className="bg-secondary rounded-full mb-4 p-4">
+      <div className="bg-secondary rounded-full my-4 p-4">
         <MessageInput
           onSendMessage={handleStreamMessage}
           isLoading={isLoading}
-          fileIndex={index}
+          fileIndex={fileIndex}
+          ingestedFiles={ingestedFiles}
         />
       </div>
     </div>

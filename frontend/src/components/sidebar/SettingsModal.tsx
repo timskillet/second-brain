@@ -82,7 +82,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-white cursor-pointer transition-colors"
           >
             <X size={24} />
           </button>
@@ -97,7 +97,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               </label>
               <button
                 onClick={handleSelectProjectDirectory}
-                className="flex justify-center items-center rounded-md border border-gray-600 p-1 gap-2 text-gray-300 text-sm"
+                className="flex justify-center cursor-pointer items-center rounded-md border border-gray-600 p-1 gap-2 text-gray-300 text-sm"
               >
                 <Folder className="h-4 w-4 text-gray-500" />
                 <span className="w-max[48px] truncate">
@@ -127,13 +127,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex justify-between mt-6 pt-4 border-t border-gray-600">
           <button
             onClick={handleClose}
-            className="px-4 py-2 bg-gray-600 text-gray-300 rounded-md hover:bg-gray-700 transition-colors"
+            className="px-4 py-2 cursor-pointer bg-gray-600 text-gray-300 rounded-md hover:bg-gray-700 transition-colors"
           >
             Close
           </button>
           <button
             onClick={handleApply}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 cursor-pointer bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
           >
             Apply
           </button>
