@@ -38,7 +38,6 @@ def format_history(history: list[BaseMessage]):
 
 async def chat_stream(chat_id: str, user_query: str, retriever=None):
     history = load_messages(chat_id)
-    history.append(HumanMessage(content=user_query))
 
     retrieved_context = ""
     if retriever:
