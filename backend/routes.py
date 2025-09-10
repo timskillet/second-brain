@@ -67,16 +67,16 @@ async def add_message(chat_id: str, message_data: dict = Body(...)):
 async def create_chat(chat_title: str):
     """Create a new chat"""
     try:
-        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
-        cursor = conn.cursor()
         chat_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
-        cursor.execute(
-            "INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (chat_id, chat_title, now, now)
-        )
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(CHAT_HISTORY_DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (chat_id, chat_title, now, now)
+            )
+            conn.commit()
+            conn.close()
         return {
             "id": chat_id, 
             "title": chat_title,
@@ -117,14 +117,13 @@ async def get_chats():
 async def get_chat(chat_id: str):
     """Get specific chat with messages"""
     try:
-        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
-        cursor = conn.cursor()
-        cursor.execute(
+        with sqlite3.connect(CHAT_HISTORY_DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
             "SELECT id, chat_id, role, content, timestamp FROM chat_messages WHERE chat_id = ? ORDER BY timestamp ASC",
             (chat_id,)
-        )
-        rows = cursor.fetchall()
-        conn.close()
+            )
+            rows = cursor.fetchall()
         
         # Convert database rows to proper Message objects
         messages = []
@@ -147,3 +146,27 @@ async def get_chat(chat_id: str):
 @router.delete("/chats/{chat_id}")
 async def delete_chat(chat_id: str):
     """Delete a chat and all its messages"""
+    try:
+        with sqlite3.connect(CHAT_HISTORY_DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM chat_messages WHERE chat_id = ?", (chat_id,))
+            cursor.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
+            conn.commit()
+        return {"message": "Chat deleted successfully"}
+    except Exception as e:
+        print(f"Error in delete_chat endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.put("/chats/{chat_id}")
+async def update_chat_title(chat_id: str, request: dict = Body(...)):
+    """Update the title of a chat"""
+    try:
+        new_title = request.get("title")
+        with sqlite3.connect(CHAT_HISTORY_DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE chats SET title = ? WHERE id = ?", (new_title, chat_id))
+            conn.commit()
+        return {"message": "Chat title updated successfully"}
+    except Exception as e:
+        print(f"Error in update_chat_title endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
