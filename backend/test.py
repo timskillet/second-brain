@@ -1,13 +1,13 @@
 from core.vector_store import vector_store
 from core.chain import chat_stream
-from core.chat_history import load_messages, save_message, init_db, clear_messages
+from core.knowledge_base import load_messages, save_message, init_db, clear_messages
 from core.document_loader import load_txt, split_docs
 import asyncio
 import time
 
 retriever = vector_store.as_retriever(
     search_type="similarity",
-    search_kwargs={"k": 2}
+    search_kwargs={"k": 3}
 )
 
 test_queries = [

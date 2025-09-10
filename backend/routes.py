@@ -9,7 +9,7 @@ from config import CHAT_HISTORY_DB_FILE
 import uuid
 from datetime import datetime
 import json
-from core.chat_history import save_message
+from core.knowledge_base import save_message
 from core.chain import chat_stream
 
 router = APIRouter()
@@ -29,7 +29,14 @@ async def chat_endpoint(chat_id: str, request: dict = Body(...)):
     """Chat endpoint"""
     try:
         message = request.get("message")
-        
+        files = request.get("files")
+
+        files_referenced = [get_file(file) for file in files]
+
+        retriever = None
+        if files_referenced:
+            retriever = create_retriever(files_referenced)
+
         # Invoke the graph
         async def generate_stream():
                 try:
@@ -168,4 +175,24 @@ async def update_chat_title(chat_id: str, request: dict = Body(...)):
         return {"message": "Chat title updated successfully"}
     except Exception as e:
         print(f"Error in update_chat_title endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Knowledge Base Routes
+@router.post("/files/{file_path}")
+async def ingest_file(file_path: str):
+    """Add a file to the knowledge base"""
+    try:
+        add_document_to_knowledge_base(file_path)
+        return {"message": "File added to knowledge base successfully"}
+    except Exception as e:
+        print(f"Error in add_file endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/files")
+async def get_files():
+    """Get all files in the knowledge base"""
+    try:
+        return get_files()
+    except Exception as e:
+        print(f"Error in get_files endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))

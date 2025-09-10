@@ -1,6 +1,6 @@
 from langchain.schema import HumanMessage, AIMessage, BaseMessage
 from langchain.prompts import ChatPromptTemplate
-from core.chat_history import load_messages, save_message
+from core.knowledge_base import load_messages, save_message
 from core.llm import llm
 from langchain_core.output_parsers import StrOutputParser
 from datetime import datetime
