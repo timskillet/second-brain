@@ -76,7 +76,7 @@ const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
 
       {/* Chat history - takes up remaining space and scrolls */}
       <div
-        className={`flex-1 overflow-y-auto ${
+        className={`flex-1 overflow-y-auto custom-scrollbar ${
           currentMessages.length === 0 ? "hidden" : "block"
         }`}
       >

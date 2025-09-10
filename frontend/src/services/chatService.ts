@@ -31,6 +31,16 @@ const chatService = {
         }
     },
 
+    // Delete chat
+    async deleteChat(chatId: string): Promise<void> {
+        try {
+            await api.delete(`/chats/${chatId}`);
+        } catch (error) {
+            console.error("Error deleting chat:", error);
+            throw new Error("Failed to delete chat");
+        }
+    },
+
     // Create new chat
     async createChat(title: string): Promise<Chat> {
         try {
@@ -46,6 +56,27 @@ const chatService = {
         } catch (error) {
             console.error("Error creating chat:", error);
             throw new Error("Failed to create chat");
+        }
+    },
+
+    // Update chat title
+    async updateChatTitle(chatId: string, title: string): Promise<void> {
+        try {
+            await api.put(`/chats/${chatId}`, { title });
+        } catch (error) {
+            console.error("Error updating chat title:", error);
+            throw new Error("Failed to update chat title");
+        }
+    },
+
+    // Duplicate chat (create new chat with same title + "Copy")
+    async duplicateChat(originalChatId: string, originalTitle: string): Promise<Chat> {
+        try {
+            const newTitle = `${originalTitle} (Copy)`;
+            return await this.createChat(newTitle);
+        } catch (error) {
+            console.error("Error duplicating chat:", error);
+            throw new Error("Failed to duplicate chat");
         }
     },
 

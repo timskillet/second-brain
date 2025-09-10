@@ -43,8 +43,8 @@ const Sidebar = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
-  // Get chats from ChatProvider
-  const { state } = useChat();
+  // Get chats and actions from ChatProvider
+  const { state, actions } = useChat();
   const chats = state.chats;
   console.log("Chats", chats);
 
@@ -161,6 +161,34 @@ const Sidebar = ({
     }
   };
 
+  {
+    /* Update Chat Title */
+  }
+  const handleUpdateChatTitle = async (chatId: string, newTitle: string) => {
+    await actions.updateChatTitle(chatId, newTitle);
+  };
+
+  {
+    /* Delete Chat */
+  }
+  const handleDeleteChat = async (chatId: string) => {
+    if (window.confirm("Are you sure you want to delete this chat?")) {
+      await actions.deleteChat(chatId);
+      // If the deleted chat was selected, clear selection
+      if (selectedChatId === chatId) {
+        onChatSelect("");
+      }
+    }
+  };
+
+  const handleDuplicateChat = async (chatId: string) => {
+    const newChatId = await actions.duplicateChat(chatId);
+    if (newChatId) {
+      // Select the new duplicated chat
+      onChatSelect(newChatId);
+    }
+  };
+
   return (
     <div className="flex">
       <div
@@ -272,6 +300,9 @@ const Sidebar = ({
                   chatName={chat.title}
                   onChatSelect={onChatSelect}
                   isSelected={selectedChatId === chat.id}
+                  onRenameChat={handleUpdateChatTitle}
+                  onDeleteChat={handleDeleteChat}
+                  onDuplicateChat={handleDuplicateChat}
                 />
               ))}
           </div>
