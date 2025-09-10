@@ -6,14 +6,18 @@ import {
   Upload,
   RefreshCcw,
   Folder,
+  Loader2,
 } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import FileTree from "./FileTree";
 import FileModal from "./FileModal";
 import SettingsModal from "./SettingsModal";
 import ChatTab from "./ChatTab";
 import type { FileNode, IngestedFile } from "../../types";
-import { fileSystemService } from "../../services/fileSystem";
+import {
+  fileSystemService,
+  ingestedFileSystemService,
+} from "../../services/fileSystem";
 
 import { useChat } from "../../contexts/ChatProvider";
 
@@ -36,8 +40,13 @@ const Sidebar = ({
 }: SidebarProps) => {
   const [open, setOpen] = useState(true);
   const [fileHovering, setFileHovering] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [, setUploadFile] = useState<File | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{
+    type: "success" | "error" | null;
+    message: string;
+  }>({ type: null, message: "" });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"file" | "directory">("directory");
@@ -53,6 +62,65 @@ const Sidebar = ({
     const file = e.target.files?.[0];
     if (file) {
       setUploadFile(file);
+      await processUploadedFile(file);
+    }
+  };
+
+  const processUploadedFile = async (file: File) => {
+    try {
+      setIsUploading(true);
+      setUploadStatus({ type: null, message: "" });
+
+      // Validate file type
+      const allowedTypes = [".pdf", ".txt", ".csv", ".md"];
+      const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+
+      if (!allowedTypes.includes(fileExtension)) {
+        throw new Error(
+          `File type ${fileExtension} not allowed. Allowed types: ${allowedTypes.join(
+            ", "
+          )}`
+        );
+      }
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new Error("File size too large. Maximum size is 10MB.");
+      }
+
+      // Upload file to backend
+      await ingestedFileSystemService.uploadFile(file);
+
+      setUploadStatus({
+        type: "success",
+        message: `File "${file.name}" uploaded and added to knowledge base successfully!`,
+      });
+
+      // Refresh ingested files list
+      if (onRootDirectoryChange) {
+        onRootDirectoryChange(rootDirectory || "");
+      }
+
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setUploadFile(null);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setUploadStatus({
+        type: "error",
+        message:
+          error instanceof Error ? error.message : "Failed to upload file",
+      });
+    } finally {
+      setIsUploading(false);
+
+      // Clear status message after 5 seconds
+      setTimeout(() => {
+        setUploadStatus({ type: null, message: "" });
+      }, 5000);
     }
   };
 
@@ -63,7 +131,6 @@ const Sidebar = ({
 
   const handleUpload = async () => {
     fileInputRef.current?.click();
-    console.log(uploadFile?.name);
   };
 
   const handleSettings = () => {
@@ -245,8 +312,12 @@ const Sidebar = ({
             </span>
           </div>
           <div
-            onClick={handleUpload}
-            className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200"
+            onClick={isUploading ? undefined : handleUpload}
+            className={`flex items-center p-3 mb-1 gap-3 rounded-lg transition-all duration-200 ${
+              isUploading
+                ? "text-gray-500 cursor-not-allowed opacity-50"
+                : "text-gray-300 cursor-pointer hover:bg-hover hover:text-white"
+            }`}
           >
             <input
               type="file"
@@ -255,15 +326,32 @@ const Sidebar = ({
               className="hidden"
               accept=".pdf,.txt,.csv,.md"
             />
-            <Upload size={24} className="flex-shrink-0" />
+            {isUploading ? (
+              <Loader2 size={24} className="flex-shrink-0 animate-spin" />
+            ) : (
+              <Upload size={24} className="flex-shrink-0" />
+            )}
             <span
               className={`${
                 !open && "hidden"
               } whitespace-nowrap transition-opacity duration-200`}
             >
-              Upload
+              {isUploading ? "Uploading..." : "Upload"}
             </span>
           </div>
+
+          {/* Upload Status Feedback */}
+          {uploadStatus.type && (
+            <div
+              className={`mx-3 mb-2 p-2 rounded-lg text-sm ${
+                uploadStatus.type === "success"
+                  ? "bg-green-900/20 text-green-400 border border-green-800"
+                  : "bg-red-900/20 text-red-400 border border-red-800"
+              }`}
+            >
+              {uploadStatus.message}
+            </div>
+          )}
           <div
             onClick={handleSettings}
             className="flex items-center p-3 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200"

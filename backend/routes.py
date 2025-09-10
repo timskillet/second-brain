@@ -2,7 +2,7 @@
 FastAPI route definitions
 """
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, UploadFile, File
 from fastapi.responses import StreamingResponse
 import sqlite3
 from config import CHAT_HISTORY_DB_FILE
@@ -179,6 +179,44 @@ async def update_chat_title(chat_id: str, request: dict = Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Knowledge Base Routes
+@router.post("/files/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a file and add it to the knowledge base"""
+    try:
+        # Check file type
+        allowed_types = ['.pdf', '.txt', '.csv', '.md']
+        file_extension = '.' + file.filename.split('.')[-1].lower() if '.' in file.filename else ''
+        
+        if file_extension not in allowed_types:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File type {file_extension} not allowed. Allowed types: {', '.join(allowed_types)}"
+            )
+        
+        # Read file content
+        content = await file.read()
+        
+        # Save file to files directory
+        import os
+        files_dir = os.path.join(os.path.dirname(__file__), "files")
+        os.makedirs(files_dir, exist_ok=True)
+        
+        file_path = os.path.join(files_dir, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        # Ingest file into knowledge base
+        ingest_file_to_knowledge_base(file_path)
+        
+        return {
+            "message": "File uploaded and added to knowledge base successfully",
+            "filename": file.filename,
+            "file_path": file_path
+        }
+    except Exception as e:
+        print(f"Error in upload_file endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/files/{file_path}")
 async def ingest_file(file_path: str):
     """Add a file to the knowledge base"""

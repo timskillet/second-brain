@@ -146,6 +146,24 @@ export class IngestedFileSystemService {
             throw new Error("Failed to delete file");
         }
     }
+
+    async uploadFile(file: File): Promise<{ message: string; filename: string; file_path: string }> {
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const response = await this.api.post('/files/upload', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            
+            return response.data;
+        } catch (error) {
+            console.error("Error uploading file:", error);
+            throw new Error("Failed to upload file");
+        }
+    }
 }
 
 export const fileSystemService = new ElectronFileSystemService();
