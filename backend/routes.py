@@ -76,7 +76,6 @@ async def create_chat(chat_title: str):
                 (chat_id, chat_title, now, now)
             )
             conn.commit()
-            conn.close()
         return {
             "id": chat_id, 
             "title": chat_title,

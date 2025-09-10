@@ -11,7 +11,6 @@ interface InterfaceProps {
 const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
   const { state, actions } = useChat();
   const [isLoading, setIsLoading] = useState(false);
-  const [index] = useState<FileIndex[]>(fileIndex);
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatId);
 
   // Update currentChatId when prop changes and load chat messages
@@ -117,11 +116,11 @@ const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
       </div>
 
       {/* Message input - fixed at bottom */}
-      <div className="bg-secondary rounded-full mb-4 p-4">
+      <div className="bg-secondary rounded-full my-4 p-4">
         <MessageInput
           onSendMessage={handleStreamMessage}
           isLoading={isLoading}
-          fileIndex={index}
+          fileIndex={fileIndex}
         />
       </div>
     </div>

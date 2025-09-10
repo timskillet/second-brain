@@ -46,11 +46,6 @@ const Sidebar = ({
   // Get chats and actions from ChatProvider
   const { state, actions } = useChat();
   const chats = state.chats;
-  console.log("Chats", chats);
-
-  useEffect(() => {
-    console.log(fileData);
-  }, [fileData]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
