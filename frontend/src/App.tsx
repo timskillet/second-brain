@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
 import Sidebar from "./components/sidebar/Sidebar";
 import Interface from "./components/interface/Interface";
-import type { FileIndex, FileNode } from "./types";
+import type { FileIndex, FileNode, IngestedFile } from "./types";
 import { buildIndex } from "./utils";
-import { fileSystemService } from "./services/fileSystem";
+import {
+  fileSystemService,
+  ingestedFileSystemService,
+} from "./services/fileSystem";
 import { ChatProvider } from "./contexts/ChatProvider";
 import { getDefaultAppStructure } from "./utils/defaultStructure.ts";
 import { DEFAULT_PATHS } from "./config/defaultPaths";
@@ -15,6 +18,7 @@ function App() {
   const [rootDirectory, setRootDirectory] = useState<string | null>(null);
   const [expandedDirectories] = useState<Set<string>>(new Set());
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [ingestedFiles, setIngestedFiles] = useState<IngestedFile[]>([]);
 
   useEffect(() => {
     initializeApp();
@@ -38,6 +42,8 @@ function App() {
   const initializeApp = async () => {
     try {
       setIsLoading(true);
+      const ingestedFiles = await ingestedFileSystemService.getIngestedFiles();
+      setIngestedFiles(ingestedFiles);
 
       // Check if we have a saved root directory
       const savedDir = localStorage.getItem("rootDirectory");
@@ -156,6 +162,7 @@ function App() {
               setSelectedChat(chatId);
             }}
             fileData={files}
+            ingestedFiles={ingestedFiles}
             rootDirectory={rootDirectory}
             selectedChatId={selectedChat}
             onRootDirectoryChange={(newDirectory) => {
@@ -171,7 +178,11 @@ function App() {
           />
         </div>
         <div className="flex-1 bg-primary">
-          <Interface chatId={selectedChat} fileIndex={fileIndex} />
+          <Interface
+            chatId={selectedChat}
+            fileIndex={fileIndex}
+            ingestedFiles={ingestedFiles}
+          />
         </div>
       </div>
     </ChatProvider>

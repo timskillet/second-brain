@@ -19,6 +19,12 @@ export interface FileIndex {
     path: string;
 }
 
+export interface IngestedFile {
+    id: string;
+    name: string;
+    path: string;
+}
+
 // Enhanced Chat interface
 export interface Chat {
     id: string;

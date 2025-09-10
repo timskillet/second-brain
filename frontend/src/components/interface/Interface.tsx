@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from "react";
 import MessageInput from "./MessageInput";
-import type { FileIndex } from "../../types";
+import type { FileIndex, IngestedFile } from "../../types";
 import { useChat } from "../../contexts/ChatProvider";
 
 interface InterfaceProps {
   chatId: string | null;
   fileIndex: FileIndex[];
+  ingestedFiles: IngestedFile[];
 }
 
-const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
+const Interface: React.FC<InterfaceProps> = ({
+  chatId,
+  fileIndex,
+  ingestedFiles,
+}) => {
   const { state, actions } = useChat();
   const [isLoading, setIsLoading] = useState(false);
   const [currentChatId, setCurrentChatId] = useState<string | null>(chatId);
@@ -121,6 +126,7 @@ const Interface: React.FC<InterfaceProps> = ({ chatId, fileIndex }) => {
           onSendMessage={handleStreamMessage}
           isLoading={isLoading}
           fileIndex={fileIndex}
+          ingestedFiles={ingestedFiles}
         />
       </div>
     </div>

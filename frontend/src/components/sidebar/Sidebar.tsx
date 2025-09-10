@@ -12,7 +12,7 @@ import FileTree from "./FileTree";
 import FileModal from "./FileModal";
 import SettingsModal from "./SettingsModal";
 import ChatTab from "./ChatTab";
-import type { FileNode } from "../../types";
+import type { FileNode, IngestedFile } from "../../types";
 import { fileSystemService } from "../../services/fileSystem";
 
 import { useChat } from "../../contexts/ChatProvider";
@@ -20,6 +20,7 @@ import { useChat } from "../../contexts/ChatProvider";
 interface SidebarProps {
   onChatSelect: (chatId: string) => void;
   fileData: FileNode[];
+  ingestedFiles: IngestedFile[];
   rootDirectory: string | null;
   onRootDirectoryChange: (newDirectory: string) => void;
   selectedChatId: string | null;
@@ -28,6 +29,7 @@ interface SidebarProps {
 const Sidebar = ({
   onChatSelect,
   fileData,
+  ingestedFiles,
   rootDirectory,
   onRootDirectoryChange,
   selectedChatId,
@@ -343,6 +345,7 @@ const Sidebar = ({
           <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
             <FileTree
               fileData={fileData}
+              ingestedFiles={ingestedFiles}
               onFileSelect={handleFileSelect}
               onCreateFile={handleCreateFile}
               onAction={handleContextMenuAction}

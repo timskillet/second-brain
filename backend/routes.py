@@ -9,8 +9,9 @@ from config import CHAT_HISTORY_DB_FILE
 import uuid
 from datetime import datetime
 import json
-from core.knowledge_base import save_message
+from core.knowledge_base import save_message, delete_file, get_files, get_file
 from core.chain import chat_stream
+from core.vector_store import create_retriever, ingest_file_to_knowledge_base
 
 router = APIRouter()
 
@@ -29,9 +30,9 @@ async def chat_endpoint(chat_id: str, request: dict = Body(...)):
     """Chat endpoint"""
     try:
         message = request.get("message")
-        files = request.get("files")
+        files = request.get("files", [])
 
-        files_referenced = [get_file(file) for file in files]
+        files_referenced = [get_file(file) for file in files] if files else []
 
         retriever = None
         if files_referenced:
@@ -40,7 +41,7 @@ async def chat_endpoint(chat_id: str, request: dict = Body(...)):
         # Invoke the graph
         async def generate_stream():
                 try:
-                    async for chunk in chat_stream(chat_id, message, None):
+                    async for chunk in chat_stream(chat_id, message, retriever):
                         if isinstance(chunk, str):
                             yield chunk
                     # End of stream
@@ -182,17 +183,37 @@ async def update_chat_title(chat_id: str, request: dict = Body(...)):
 async def ingest_file(file_path: str):
     """Add a file to the knowledge base"""
     try:
-        add_document_to_knowledge_base(file_path)
+        ingest_file_to_knowledge_base(file_path)
         return {"message": "File added to knowledge base successfully"}
     except Exception as e:
         print(f"Error in add_file endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/files")
-async def get_files():
+async def get_files_endpoint():
     """Get all files in the knowledge base"""
     try:
-        return get_files()
+        files = get_files()
+        # Convert tuples to dictionaries for better JSON serialization
+        file_list = []
+        for file_tuple in files:
+            file_dict = {
+                "id": file_tuple[0],
+                "name": file_tuple[1], 
+                "path": file_tuple[2]
+            }
+            file_list.append(file_dict)
+        return file_list
     except Exception as e:
         print(f"Error in get_files endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/files/{file_name}")
+async def delete_file(file_name: str):
+    """Delete a file from the knowledge base"""
+    try:
+        delete_file(file_name)
+        return {"message": "File deleted from knowledge base successfully"}
+    except Exception as e:
+        print(f"Error in delete_file endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))

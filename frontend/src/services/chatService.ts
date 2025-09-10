@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { Chat, Message } from "../types";
+import { extractFilesAndSanitize } from "../utils";
 
 const api = axios.create({
     baseURL: "http://localhost:8002",
@@ -87,12 +88,15 @@ const chatService = {
         onToken?: (token: string) => void,
     ): Promise<string> {
         try {
+            const { files, sanitizedInput } = extractFilesAndSanitize(message);
+            console.log("Files:", files);
+            console.log("Sanitized input:", sanitizedInput);
             const response = await fetch(`http://localhost:8002/chat/${chatId}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ message, created_at: new Date().toISOString() }),
+                body: JSON.stringify({ message: sanitizedInput, files: files, created_at: new Date().toISOString() }),
             });
 
             if (!response.ok) {

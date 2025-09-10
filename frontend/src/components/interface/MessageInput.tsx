@@ -1,11 +1,12 @@
 import { Paperclip, Send, SquarePause } from "lucide-react";
 import React, { useRef, useState, useEffect } from "react";
-import type { FileIndex } from "../../types";
+import type { FileIndex, IngestedFile } from "../../types";
 
 interface InputProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   fileIndex: FileIndex[];
+  ingestedFiles: IngestedFile[];
 }
 
 interface Command {
@@ -20,6 +21,7 @@ const Input: React.FC<InputProps> = ({
   onSendMessage,
   isLoading,
   fileIndex,
+  ingestedFiles,
 }) => {
   const [message, setMessage] = useState("");
   const [suggestions, setSuggestions] = useState<FileIndex[]>([]);
@@ -107,7 +109,7 @@ const Input: React.FC<InputProps> = ({
     if (fileMatch) {
       // Handle file references
       const query = fileMatch[1].toLowerCase();
-      const filtered = fileIndex.filter((f) =>
+      const filtered = ingestedFiles.filter((f) =>
         f.name.toLowerCase().includes(query)
       );
       console.log("Filtered file suggestions:", filtered);

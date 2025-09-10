@@ -1,10 +1,11 @@
 import { ChevronDown, ChevronRight, Folder, FileIcon } from "lucide-react";
 import { useState, useEffect } from "react";
-import type { FileNode } from "../../types";
+import type { FileNode, IngestedFile } from "../../types";
 import Menu from "../Menu";
 
 interface FileTreeProps {
   fileData: FileNode[];
+  ingestedFiles: IngestedFile[];
   onFileSelect?: (node: FileNode) => void;
   onCreateFile?: (
     parentPath: string,
@@ -17,6 +18,7 @@ interface FileTreeProps {
 
 const FileTree = ({
   fileData,
+  ingestedFiles,
   onFileSelect,
   onCreateFile,
   onAction,
@@ -190,8 +192,22 @@ const FileTree = ({
     );
   };
 
+  const renderIngestedFileTree = (file: IngestedFile): React.ReactNode => {
+    return (
+      <div key={file.id}>
+        <div
+          className={`flex m-1 items-center hover:bg-hover rounded-lg p-1 flex-1`}
+        >
+          <FileIcon className="h-4 w-4 text-gray-500 mr-2" />
+          <span className="flex-1 text-gray-300 truncate">{file.name}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex-1 overflow-y-auto">
+      {ingestedFiles.map((file) => renderIngestedFileTree(file))}
       {fileData.map((node) => renderFileTree(node))}
       {menu && (
         <Menu
