@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Chat, Message } from "../types";
+import type { Chat, Message, Personality } from "../types";
 import { extractFilesAndSanitize } from "../utils";
 
 const api = axios.create({
@@ -10,6 +10,17 @@ const api = axios.create({
 });
 
 const chatService = {
+    // Get all personalities
+    async getPersonalities(): Promise<Personality[]> {
+        try {
+            const response = await api.get<Personality[]>("/personalities");
+            return response.data;
+        } catch (error) {
+            console.error("Error fetching personalities:", error);
+            throw new Error("Failed to fetch personalities");
+        }
+    },
+
     // Get all chats
     async getChats(): Promise<Chat[]> {
         try {
@@ -43,16 +54,20 @@ const chatService = {
     },
 
     // Create new chat
-    async createChat(title: string): Promise<Chat> {
+    async createChat(title: string, personalityId: string = "assistant"): Promise<Chat> {
         try {
             const response = await api.post("/chats", null, {
-                params: { chat_title: title }
+                params: { 
+                    chat_title: title,
+                    personality_id: personalityId
+                }
             });
             return {
                 id: response.data.id,
                 title: response.data.title,
                 created_at: response.data.created_at,
                 updated_at: response.data.updated_at,
+                personality_id: response.data.personality_id || "assistant"
             }
         } catch (error) {
             console.error("Error creating chat:", error);
@@ -70,11 +85,21 @@ const chatService = {
         }
     },
 
+    // Update chat personality
+    async updateChatPersonality(chatId: string, personalityId: string): Promise<void> {
+        try {
+            await api.put(`/chats/${chatId}/personality`, { personality_id: personalityId });
+        } catch (error) {
+            console.error("Error updating chat personality:", error);
+            throw new Error("Failed to update chat personality");
+        }
+    },
+
     // Duplicate chat (create new chat with same title + "Copy")
-    async duplicateChat(originalChatId: string, originalTitle: string): Promise<Chat> {
+    async duplicateChat(originalChatId: string, originalTitle: string, personalityId: string = "assistant"): Promise<Chat> {
         try {
             const newTitle = `${originalTitle} (Copy)`;
-            return await this.createChat(newTitle);
+            return await this.createChat(newTitle, personalityId);
         } catch (error) {
             console.error("Error duplicating chat:", error);
             throw new Error("Failed to duplicate chat");
@@ -86,6 +111,7 @@ const chatService = {
         chatId: string,
         message: string,
         onToken?: (token: string) => void,
+        personalityId: string = "assistant"
     ): Promise<string> {
         try {
             const { files, sanitizedInput } = extractFilesAndSanitize(message);
@@ -96,7 +122,12 @@ const chatService = {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ message: sanitizedInput, files: files, created_at: new Date().toISOString() }),
+                body: JSON.stringify({ 
+                    message: sanitizedInput, 
+                    files: files, 
+                    personality_id: personalityId,
+                    created_at: new Date().toISOString() 
+                }),
             });
 
             if (!response.ok) {

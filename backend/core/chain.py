@@ -2,30 +2,9 @@ from langchain.schema import HumanMessage, AIMessage, BaseMessage
 from langchain.prompts import ChatPromptTemplate
 from core.knowledge_base import load_messages, save_message
 from core.llm import llm
+from core.personalities import get_personality
 from langchain_core.output_parsers import StrOutputParser
 from datetime import datetime
-
-SYSTEM_PROMPT = """
-<|system|>
-You are a "second brain" assistant that helps users by answering questions using provided context.
-
-Instructions:
-- Answer the user's question directly and concisely (under 100 words)
-- Use the provided context if it's relevant to the question
-- If the context doesn't contain relevant information, say "I don't have information about that in my knowledge base"
-- Provide a complete, helpful answer
-- Do not include any labels like "Human:", "Assistant:", or "AI:" in your response
-
-<|user|>
-Context to use for answering:
-    {retrieved_context}
-Message history:
-    {history}
-Question: 
-    {user_query}
-
-<|assistant|>
-"""
 
 def format_history(history: list[BaseMessage]):
     lines = []
@@ -36,8 +15,11 @@ def format_history(history: list[BaseMessage]):
             lines.append(f"Assistant: {msg.content}")
     return "\n".join(lines) if lines else "None"
 
-async def chat_stream(chat_id: str, user_query: str, retriever=None):
+async def chat_stream(chat_id: str, user_query: str, retriever=None, personality_id: str = "assistant"):
     history = load_messages(chat_id)
+    
+    # Get the selected personality
+    personality = get_personality(personality_id)
 
     retrieved_context = ""
     if retriever:
@@ -57,9 +39,16 @@ async def chat_stream(chat_id: str, user_query: str, retriever=None):
 
     context_text = retrieved_context if retrieved_context else "None"
     history_text = format_history(history)
-    full_prompt = SYSTEM_PROMPT.format(retrieved_context=context_text, history=history_text, user_query=user_query)
+    
+    # Use the personality's system prompt
+    full_prompt = personality.system_prompt.format(
+        retrieved_context=context_text, 
+        history=history_text, 
+        user_query=user_query
+    )
     prompt = ChatPromptTemplate.from_messages([("system", full_prompt)])
 
+    print(f"Using personality: {personality.name}")
     print("Prompt sent to LLM:\n", prompt.format_prompt().to_string())
     print("=" * 50)
 
@@ -84,4 +73,3 @@ async def chat_stream(chat_id: str, user_query: str, retriever=None):
         "response": response,
         "type": "final_response",
     }
-            

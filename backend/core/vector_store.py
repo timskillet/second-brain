@@ -61,15 +61,12 @@ def create_retriever(file_ids: List[str] = None):
         retriever = vector_store.as_retriever(
             search_type="similarity",
             search_kwargs={
-                "k": 2 * len(file_ids),
+                "k": 5 * len(file_ids),
                 "filter": {
                     "id": {"$in": file_ids}
                 }
             }
         )
     else:
-        retriever = vector_store.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": 2}
-        )
+        retriever = None
     return retriever

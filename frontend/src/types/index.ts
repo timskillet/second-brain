@@ -25,12 +25,22 @@ export interface IngestedFile {
     path: string;
 }
 
+// Personality interface
+export interface Personality {
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    color: string;
+}
+
 // Enhanced Chat interface
 export interface Chat {
     id: string;
     title: string;
     created_at: string;
     updated_at: string;
+    personality_id?: string;
 }
 
 // Chat response interface
@@ -39,6 +49,7 @@ export interface ChatResponse {
     title: string;
     created_at: string;
     updated_at: string;
+    personality_id?: string;
 }
 
 // Message interface
@@ -54,6 +65,7 @@ export interface Message {
 // New interfaces for API responses
 export interface CreateChatRequest {
     title: string;
+    personality_id?: string;
 }
 
 export interface CreateMessageRequest {
