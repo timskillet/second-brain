@@ -278,3 +278,56 @@ async def delete_file(file_name: str):
     except Exception as e:
         print(f"Error in delete_file endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/search/chats")
+async def search_chats(q: str):
+    """Search through chat titles and messages"""
+    try:
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
+        cursor = conn.cursor()
+        
+        # Search in chat titles
+        cursor.execute("""
+            SELECT id, title, created_at, 'title' as match_type, 
+                   title as snippet, NULL as message_id, created_at as timestamp
+            FROM chats 
+            WHERE title LIKE ? 
+            ORDER BY created_at DESC
+        """, (f"%{q}%",))
+        title_results = cursor.fetchall()
+        
+        # Search in messages
+        cursor.execute("""
+            SELECT c.id, c.title, c.created_at, 'message' as match_type,
+                   SUBSTR(m.content, MAX(1, INSTR(m.content, ?) - 50), 100) as snippet,
+                   m.id as message_id, m.timestamp
+            FROM chats c
+            JOIN chat_messages m ON c.id = m.chat_id
+            WHERE m.content LIKE ?
+            GROUP BY c.id, m.id
+            ORDER BY m.timestamp DESC
+        """, (f"%{q}%", f"%{q}%"))
+        message_results = cursor.fetchall()
+        
+        conn.close()
+        
+        # Combine and format results
+        all_results = title_results + message_results
+        search_results = []
+        
+        for row in all_results:
+            search_results.append({
+                "chatId": row[0],
+                "chatTitle": row[1],
+                "matchType": row[3],
+                "snippet": row[4],
+                "messageId": row[5],
+                "timestamp": row[6],
+                "relevanceScore": 1.0  # Could implement more sophisticated scoring
+            })
+        
+        return search_results[:20]  # Limit results
+        
+    except Exception as e:
+        print(f"Error in search_chats endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
