@@ -72,3 +72,13 @@ export interface CreateMessageRequest {
     role: 'user' | 'assistant';
     content: string;
 }
+
+export interface SearchResult {
+  chatId: string;
+  chatTitle: string;
+  matchType: 'title' | 'message' | 'file';
+  snippet: string;
+  messageId?: string;
+  timestamp: string;
+  relevanceScore: number;
+}

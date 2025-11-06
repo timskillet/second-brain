@@ -39,7 +39,7 @@ async def chat_endpoint(chat_id: str, request: dict = Body(...)):
         files = request.get("files", [])
         personality_id = request.get("personality_id", "assistant")  # Default to assistant
 
-        files_referenced = [get_file(file) for file in files] if files else []
+        files_referenced = [get_file(file)[0] for file in files] if files else []
 
         retriever = None
         if files_referenced:
@@ -47,15 +47,15 @@ async def chat_endpoint(chat_id: str, request: dict = Body(...)):
 
         # Invoke the graph
         async def generate_stream():
-                try:
-                    async for chunk in chat_stream(chat_id, message, retriever, personality_id):
-                        if isinstance(chunk, str):
-                            yield chunk
-                    # End of stream
-                except Exception as e:
-                    print(f"Error in chat stream: {e}")
-                    yield f"Error: {str(e)}"
-                yield "\n[END]"
+            try:
+                async for chunk in chat_stream(chat_id, message, retriever, personality_id):
+                    if isinstance(chunk, str):
+                        yield chunk
+                # End of stream
+            except Exception as e:
+                print(f"Error in chat stream: {e}")
+                yield f"Error: {str(e)}"
+            yield "\n[END]"
         return StreamingResponse(
             generate_stream(), 
             media_type="text/event-stream",

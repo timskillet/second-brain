@@ -12,6 +12,7 @@ import React, { useRef, useState } from "react";
 import FileTree from "./FileTree";
 import FileModal from "./FileModal";
 import SettingsModal from "./SettingsModal";
+import SearchModal from "./SearchModal";
 import ChatTab from "./ChatTab";
 import type { FileNode, IngestedFile } from "../../types";
 import {
@@ -53,6 +54,7 @@ const Sidebar = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
   // Get chats and actions from ChatProvider
   const { state, actions } = useChat();
@@ -84,7 +86,7 @@ const Sidebar = ({
       }
 
       // Validate file size (max 50MB)
-      const maxSize = 50 * 1024 * 1024; // 10MB
+      const maxSize = 50 * 1024 * 1024; // 50MB
       if (file.size > maxSize) {
         throw new Error("File size too large. Maximum size is 50MB.");
       }
@@ -136,6 +138,10 @@ const Sidebar = ({
   const handleSettings = () => {
     setIsSettingsModalOpen(true);
     console.log("Settings");
+  };
+
+  const handleSearchClick = () => {
+    setIsSearchModalOpen(true);
   };
 
   const handleFileSelect = (node: FileNode) => {
@@ -225,16 +231,11 @@ const Sidebar = ({
     }
   };
 
-  {
-    /* Update Chat Title */
-  }
+  // Chat management handlers
   const handleUpdateChatTitle = async (chatId: string, newTitle: string) => {
     await actions.updateChatTitle(chatId, newTitle);
   };
 
-  {
-    /* Delete Chat */
-  }
   const handleDeleteChat = async (chatId: string) => {
     if (window.confirm("Are you sure you want to delete this chat?")) {
       await actions.deleteChat(chatId);
@@ -301,7 +302,10 @@ const Sidebar = ({
               New Chat
             </span>
           </div>
-          <div className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200">
+          <div
+            onClick={handleSearchClick}
+            className="flex items-center p-3 mb-1 gap-3 rounded-lg text-gray-300 cursor-pointer hover:bg-hover hover:text-white transition-all duration-200"
+          >
             <Search size={24} className="flex-shrink-0" />
             <span
               className={`${
@@ -462,6 +466,13 @@ const Sidebar = ({
         onClose={() => setIsSettingsModalOpen(false)}
         currentRootDirectory={rootDirectory}
         onRootDirectoryChange={onRootDirectoryChange}
+      />
+
+      {/* Search Modal */}
+      <SearchModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onChatSelect={onChatSelect}
       />
     </div>
   );

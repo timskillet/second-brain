@@ -9,6 +9,16 @@ const api = axios.create({
     }
 });
 
+export interface SearchResult {
+  chatId: string;
+  chatTitle: string;
+  matchType: 'title' | 'message' | 'file';
+  snippet: string;
+  messageId?: string;
+  timestamp: string;
+  relevanceScore: number;
+}
+
 const chatService = {
     // Get all personalities
     async getPersonalities(): Promise<Personality[]> {
@@ -185,6 +195,18 @@ const chatService = {
             throw new Error("Failed to send message");
         }
     },
+
+    async searchChats(query: string): Promise<SearchResult[]> {
+        try {
+            const response = await api.get<SearchResult[]>("/search/chats", {
+                params: { q: query }
+            });
+            return response.data;
+        } catch (error) {
+            console.error("Error searching chats:", error);
+            throw new Error("Failed to search chats");
+        }
+    }
 }
 
 export default chatService;
