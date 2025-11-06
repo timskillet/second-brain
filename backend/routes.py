@@ -12,6 +12,7 @@ import json
 from core.knowledge_base import save_message, delete_file, get_files, get_file
 from core.chain import chat_stream
 from core.vector_store import create_retriever, ingest_file_to_knowledge_base
+from core.personalities import get_personality_list, get_personality
 
 router = APIRouter()
 
@@ -25,14 +26,20 @@ def health():
     """Health check endpoint"""
     return {"ok": True, "status": "healthy"}
 
+@router.get("/personalities")
+def get_personalities():
+    """Get all available AI personalities"""
+    return get_personality_list()
+
 @router.post("/chat/{chat_id}")
 async def chat_endpoint(chat_id: str, request: dict = Body(...)):
-    """Chat endpoint"""
+    """Chat endpoint with personality support"""
     try:
         message = request.get("message")
         files = request.get("files", [])
+        personality_id = request.get("personality_id", "assistant")  # Default to assistant
 
-        files_referenced = [get_file(file) for file in files] if files else []
+        files_referenced = [get_file(file)[0] for file in files] if files else []
 
         retriever = None
         if files_referenced:
@@ -40,15 +47,15 @@ async def chat_endpoint(chat_id: str, request: dict = Body(...)):
 
         # Invoke the graph
         async def generate_stream():
-                try:
-                    async for chunk in chat_stream(chat_id, message, retriever):
-                        if isinstance(chunk, str):
-                            yield chunk
-                    # End of stream
-                except Exception as e:
-                    print(f"Error in chat stream: {e}")
-                    yield f"Error: {str(e)}"
-                yield "\n[END]"
+            try:
+                async for chunk in chat_stream(chat_id, message, retriever, personality_id):
+                    if isinstance(chunk, str):
+                        yield chunk
+                # End of stream
+            except Exception as e:
+                print(f"Error in chat stream: {e}")
+                yield f"Error: {str(e)}"
+            yield "\n[END]"
         return StreamingResponse(
             generate_stream(), 
             media_type="text/event-stream",
@@ -72,23 +79,24 @@ async def add_message(chat_id: str, message_data: dict = Body(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chats")
-async def create_chat(chat_title: str):
-    """Create a new chat"""
+async def create_chat(chat_title: str, personality_id: str = "assistant"):
+    """Create a new chat with personality"""
     try:
         chat_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
         with sqlite3.connect(CHAT_HISTORY_DB_FILE) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO chats (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                (chat_id, chat_title, now, now)
+                "INSERT INTO chats (id, title, created_at, updated_at, personality_id) VALUES (?, ?, ?, ?, ?)",
+                (chat_id, chat_title, now, now, personality_id)
             )
             conn.commit()
         return {
             "id": chat_id, 
             "title": chat_title,
             "created_at": now,
-            "updated_at": now
+            "updated_at": now,
+            "personality_id": personality_id
         }
     except Exception as e:
         print(f"Error in create_chat endpoint: {e}")
@@ -100,7 +108,7 @@ async def get_chats():
     try:
         conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
         cursor = conn.cursor()
-        cursor.execute("SELECT id, title, created_at, updated_at FROM chats ORDER BY updated_at DESC")
+        cursor.execute("SELECT id, title, created_at, updated_at, personality_id FROM chats ORDER BY updated_at DESC")
         rows = cursor.fetchall()
         conn.close()
         
@@ -111,7 +119,8 @@ async def get_chats():
                 "id": row[0],
                 "title": row[1], 
                 "created_at": row[2],
-                "updated_at": row[3]
+                "updated_at": row[3],
+                "personality_id": row[4] if len(row) > 4 else "assistant"
             }
             chats.append(chat)
         
@@ -176,6 +185,20 @@ async def update_chat_title(chat_id: str, request: dict = Body(...)):
         return {"message": "Chat title updated successfully"}
     except Exception as e:
         print(f"Error in update_chat_title endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/chats/{chat_id}/personality")
+async def update_chat_personality(chat_id: str, request: dict = Body(...)):
+    """Update the personality of a chat"""
+    try:
+        personality_id = request.get("personality_id")
+        with sqlite3.connect(CHAT_HISTORY_DB_FILE) as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE chats SET personality_id = ? WHERE id = ?", (personality_id, chat_id))
+            conn.commit()
+        return {"message": "Chat personality updated successfully"}
+    except Exception as e:
+        print(f"Error in update_chat_personality endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Knowledge Base Routes
@@ -254,4 +277,57 @@ async def delete_file(file_name: str):
         return {"message": "File deleted from knowledge base successfully"}
     except Exception as e:
         print(f"Error in delete_file endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/search/chats")
+async def search_chats(q: str):
+    """Search through chat titles and messages"""
+    try:
+        conn = sqlite3.connect(CHAT_HISTORY_DB_FILE)
+        cursor = conn.cursor()
+        
+        # Search in chat titles
+        cursor.execute("""
+            SELECT id, title, created_at, 'title' as match_type, 
+                   title as snippet, NULL as message_id, created_at as timestamp
+            FROM chats 
+            WHERE title LIKE ? 
+            ORDER BY created_at DESC
+        """, (f"%{q}%",))
+        title_results = cursor.fetchall()
+        
+        # Search in messages
+        cursor.execute("""
+            SELECT c.id, c.title, c.created_at, 'message' as match_type,
+                   SUBSTR(m.content, MAX(1, INSTR(m.content, ?) - 50), 100) as snippet,
+                   m.id as message_id, m.timestamp
+            FROM chats c
+            JOIN chat_messages m ON c.id = m.chat_id
+            WHERE m.content LIKE ?
+            GROUP BY c.id, m.id
+            ORDER BY m.timestamp DESC
+        """, (f"%{q}%", f"%{q}%"))
+        message_results = cursor.fetchall()
+        
+        conn.close()
+        
+        # Combine and format results
+        all_results = title_results + message_results
+        search_results = []
+        
+        for row in all_results:
+            search_results.append({
+                "chatId": row[0],
+                "chatTitle": row[1],
+                "matchType": row[3],
+                "snippet": row[4],
+                "messageId": row[5],
+                "timestamp": row[6],
+                "relevanceScore": 1.0  # Could implement more sophisticated scoring
+            })
+        
+        return search_results[:20]  # Limit results
+        
+    except Exception as e:
+        print(f"Error in search_chats endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))

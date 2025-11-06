@@ -10,3 +10,4 @@ torch
 pydantic
 sqlite3
 aiosqlite
+pypdf

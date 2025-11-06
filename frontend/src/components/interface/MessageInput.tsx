@@ -70,10 +70,11 @@ const Input: React.FC<InputProps> = ({
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        textareaRef.current &&
-        !textareaRef.current.contains(event.target as Node)
-      ) {
+      const target = event.target as Element;
+      const isClickOnTextarea = textareaRef.current?.contains(target);
+      const isClickOnDropdown = target.closest("[data-dropdown]");
+
+      if (!isClickOnTextarea && !isClickOnDropdown) {
         setShowDropdown(false);
       }
     };
@@ -165,7 +166,7 @@ const Input: React.FC<InputProps> = ({
       return;
     }
 
-    // Handle Arrow keys for dropdown navigation
+    // Handle Arrow keys and Tab for dropdown navigation
     if (showDropdown && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       e.preventDefault();
       const currentSuggestions =
@@ -180,21 +181,15 @@ const Input: React.FC<InputProps> = ({
       return;
     }
 
-    // Handle Enter key for selecting from dropdown or sending message
+    if (showDropdown && (e.key === "Enter" || e.key === "Tab") && !e.shiftKey) {
+      e.preventDefault();
+      handleSelection(selectedIndex);
+      return;
+    }
+
+    // Handle Enter key for sending message
     if (e.key === "Enter" && !e.shiftKey) {
-      if (showDropdown) {
-        e.preventDefault();
-        const currentSuggestions =
-          dropdownType === "files" ? suggestions : commandSuggestions;
-        if (currentSuggestions[selectedIndex]) {
-          if (dropdownType === "files") {
-            insertReference(suggestions[selectedIndex].name);
-          } else {
-            insertCommand(commandSuggestions[selectedIndex]);
-          }
-        }
-        return;
-      } else {
+      if (!showDropdown) {
         e.preventDefault();
         handleSendMessage();
         setMessage("");
@@ -246,6 +241,27 @@ const Input: React.FC<InputProps> = ({
     });
   };
 
+  const handleSelection = (index: number) => {
+    console.log("handleSelection called with index:", index);
+    console.log("dropdownType:", dropdownType);
+    console.log("suggestions:", suggestions);
+    console.log("commandSuggestions:", commandSuggestions);
+
+    const currentSuggestions =
+      dropdownType === "files" ? suggestions : commandSuggestions;
+
+    if (currentSuggestions[index]) {
+      console.log("Selection found, calling insert function");
+      if (dropdownType === "files") {
+        insertReference(suggestions[index].name);
+      } else {
+        insertCommand(commandSuggestions[index]);
+      }
+    } else {
+      console.log("No selection found at index:", index);
+    }
+  };
+
   return (
     <div className="flex justify-center items-center space-x-3 relative">
       <button
@@ -268,102 +284,104 @@ const Input: React.FC<InputProps> = ({
         />
 
         {showDropdown && (
-          <ul
-            className={`absolute z-50 text-gray-300 rounded-md shadow-md w-80 max-h-40 overflow-y-auto border border-gray-600 ${
-              dropdownType === "files" ? "bg-primary" : "bg-primary"
-            }`}
+          <div
+            data-dropdown
+            className={`absolute z-50 text-gray-300 rounded-md shadow-md w-80 max-h-40 overflow-y-auto border border-gray-600 bg-gray-800`}
             style={{
               bottom: dropdownPosition.bottom,
               left: dropdownPosition.left,
             }}
           >
-            {dropdownType === "files" ? (
-              suggestions.length > 0 ? (
-                suggestions.map((fileIndex, i) => (
-                  <li
-                    key={i}
-                    className={`px-3 py-2 m-1 rounded-md cursor-pointer flex items-center ${
-                      i === selectedIndex ? "bg-primary" : "hover:bg-secondary"
-                    }`}
-                    onClick={() => insertReference(fileIndex.name)}
-                  >
-                    <span className="text-sm font-medium">
-                      {fileIndex.name}
-                    </span>
-                    <span className="text-xs text-gray-400 ml-2">
-                      @{fileIndex.name}
-                    </span>
+            <div className="px-3 py-2 text-xs text-gray-400 border-b border-gray-600 bg-gray-700 rounded-t-md">
+              {dropdownType === "files" ? "Files" : "Commands"} - Use ↑↓ or Tab
+              to navigate, Enter to select, Esc to close
+            </div>
+            <ul>
+              {dropdownType === "files" ? (
+                suggestions.length > 0 ? (
+                  suggestions.map((fileIndex, i) => (
+                    <li
+                      key={i}
+                      className={`px-3 py-2 m-1 rounded-md cursor-pointer flex items-center transition-colors duration-150 ${
+                        i === selectedIndex
+                          ? "bg-blue-600 text-white"
+                          : "hover:bg-gray-700"
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log(
+                          "CLICKED on file:",
+                          fileIndex.name,
+                          "index:",
+                          i
+                        );
+                        handleSelection(i);
+                      }}
+                    >
+                      <span className="text-sm font-medium">
+                        {fileIndex.name}
+                      </span>
+                      <span className="text-xs text-gray-400 ml-2">
+                        @{fileIndex.name}
+                      </span>
+                      {i === selectedIndex && (
+                        <span className="ml-auto text-xs text-blue-300">←</span>
+                      )}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 m-1 text-gray-500">
+                    No files found
                   </li>
-                ))
-              ) : (
-                <li className="px-3 py-2 m-1 text-gray-500">No files found</li>
-              )
-            ) : dropdownType === "commands" ? (
-              commandSuggestions.length > 0 ? (
-                commandSuggestions.map((command, i) => (
-                  <li
-                    key={i}
-                    className={`px-3 py-2 m-1 rounded-md cursor-pointer ${
-                      i === selectedIndex ? "bg-primary" : "hover:bg-secondary"
-                    }`}
-                    onClick={() => insertCommand(command)}
-                  >
-                    <div className="flex flex-col">
-                      <div className="flex items-center">
-                        <span className="text-sm font-medium text-white">
-                          /{command.name}
-                        </span>
-                        <span className="text-xs text-gray-300 ml-2">
-                          {command.usage}
+                )
+              ) : dropdownType === "commands" ? (
+                commandSuggestions.length > 0 ? (
+                  commandSuggestions.map((command, i) => (
+                    <li
+                      key={i}
+                      className={`px-3 py-2 m-1 rounded-md cursor-pointer transition-colors duration-150 ${
+                        i === selectedIndex
+                          ? "bg-blue-600 text-white"
+                          : "hover:bg-gray-700"
+                      }`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log(
+                          "CLICKED on command:",
+                          command.name,
+                          "index:",
+                          i
+                        );
+                        handleSelection(i);
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <div className="flex items-center">
+                          <span className="text-sm font-medium text-white">
+                            /{command.name}
+                          </span>
+                          <span className="text-xs text-gray-300 ml-2">
+                            {command.usage}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-400 mt-1">
+                          {command.description}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400 mt-1">
-                        {command.description}
-                      </span>
-                    </div>
+                      {i === selectedIndex && (
+                        <span className="ml-auto text-xs text-blue-300">←</span>
+                      )}
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 m-1 text-gray-500">
+                    No commands found
                   </li>
-                ))
-              ) : (
-                <li className="px-3 py-2 m-1 text-gray-500">
-                  No commands found
-                </li>
-              )
-            ) : null}
-          </ul>
-        )}
-        {/* Debug info */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="absolute top-0 right-0 text-xs text-gray-500 bg-black p-1 rounded">
-            <div>showDropdown: {showDropdown.toString()}</div>
-            <div>type: {dropdownType}</div>
-            <div>
-              files: {suggestions.length}, commands: {commandSuggestions.length}
-            </div>
-            <div>selected: {selectedIndex}</div>
-            <div className="flex gap-1 mt-1">
-              <button
-                onClick={() => {
-                  setSuggestions(fileIndex.slice(0, 3));
-                  setCommandSuggestions([]);
-                  setDropdownType("files");
-                  setShowDropdown(true);
-                }}
-                className="px-1 bg-primary text-white rounded"
-              >
-                Test Files
-              </button>
-              <button
-                onClick={() => {
-                  setCommandSuggestions(availableCommands.slice(0, 3));
-                  setSuggestions([]);
-                  setDropdownType("commands");
-                  setShowDropdown(true);
-                }}
-                className="px-1 bg-primary text-white rounded"
-              >
-                Test Commands
-              </button>
-            </div>
+                )
+              ) : null}
+            </ul>
           </div>
         )}
       </div>

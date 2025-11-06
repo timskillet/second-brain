@@ -6,13 +6,15 @@ import {
   useMemo,
 } from "react";
 import type { ReactNode } from "react";
-import type { Chat, Message } from "../types";
+import type { Chat, Message, Personality } from "../types";
 import chatService from "../services/chatService";
 
 // ChatContext.tsx
 interface ChatState {
   chats: Chat[];
   messages: Record<string, Message[]>;
+  personalities: Personality[];
+  currentPersonality: Personality | null;
   isLoading: boolean;
   error: string | null;
   chatStreams: Record<
@@ -28,6 +30,8 @@ type ChatAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_CHATS"; payload: Chat[] }
+  | { type: "SET_PERSONALITIES"; payload: Personality[] }
+  | { type: "SET_CURRENT_PERSONALITY"; payload: Personality }
   | { type: "SET_MESSAGES"; payload: { chatId: string; messages: Message[] } }
   | { type: "ADD_MESSAGE"; payload: { chatId: string; message: Message } }
   | { type: "SET_STREAMING"; payload: { chatId: string; isStreaming: boolean } }
@@ -37,11 +41,17 @@ type ChatAction =
     }
   | { type: "CLEAR_STREAMED_RESPONSE"; payload: { chatId: string } }
   | { type: "UPDATE_CHAT_TITLE"; payload: { chatId: string; title: string } }
+  | {
+      type: "UPDATE_CHAT_PERSONALITY";
+      payload: { chatId: string; personalityId: string };
+    }
   | { type: "REMOVE_CHAT"; payload: { chatId: string } };
 
 const initialState: ChatState = {
   chats: [],
   messages: {},
+  personalities: [],
+  currentPersonality: null,
   isLoading: false,
   error: null,
   chatStreams: {},
@@ -55,6 +65,10 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, error: action.payload };
     case "SET_CHATS":
       return { ...state, chats: action.payload };
+    case "SET_PERSONALITIES":
+      return { ...state, personalities: action.payload };
+    case "SET_CURRENT_PERSONALITY":
+      return { ...state, currentPersonality: action.payload };
     case "SET_MESSAGES":
       return {
         ...state,
@@ -115,6 +129,15 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             : chat
         ),
       };
+    case "UPDATE_CHAT_PERSONALITY":
+      return {
+        ...state,
+        chats: state.chats.map((chat) =>
+          chat.id === action.payload.chatId
+            ? { ...chat, personality_id: action.payload.personalityId }
+            : chat
+        ),
+      };
     case "REMOVE_CHAT":
       const { [action.payload.chatId]: _, ...restMessages } = state.messages;
       return {
@@ -130,13 +153,26 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 interface ChatContextType {
   state: ChatState;
   actions: {
-    createChat: (title: string) => Promise<string | null>;
+    createChat: (
+      title: string,
+      personalityId?: string
+    ) => Promise<string | null>;
     selectChat: (chatId: string) => Promise<void>;
-    sendMessage: (content: string, chatId: string) => Promise<void>;
+    sendMessage: (
+      content: string,
+      chatId: string,
+      personalityId?: string
+    ) => Promise<void>;
     deleteChat: (chatId: string) => Promise<void>;
     updateChatTitle: (chatId: string, title: string) => Promise<void>;
+    updateChatPersonality: (
+      chatId: string,
+      personalityId: string
+    ) => Promise<void>;
     duplicateChat: (chatId: string) => Promise<string | null>;
     loadChats: () => Promise<void>;
+    loadPersonalities: () => Promise<void>;
+    setCurrentPersonality: (personality: Personality) => void;
   };
 }
 
@@ -149,10 +185,38 @@ interface ChatProviderProps {
 export function ChatProvider({ children }: ChatProviderProps) {
   const [state, dispatch] = useReducer(chatReducer, initialState);
 
-  // Load chats on mount
+  // Load chats and personalities on mount
   useEffect(() => {
     loadChats();
+    loadPersonalities();
   }, []);
+
+  const loadPersonalities = async () => {
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "SET_ERROR", payload: null });
+      const personalities = await chatService.getPersonalities();
+      dispatch({ type: "SET_PERSONALITIES", payload: personalities });
+
+      // Set default personality
+      if (personalities.length > 0 && !state.currentPersonality) {
+        dispatch({
+          type: "SET_CURRENT_PERSONALITY",
+          payload: personalities[0],
+        });
+      }
+    } catch (error) {
+      dispatch({
+        type: "SET_ERROR",
+        payload:
+          error instanceof Error
+            ? error.message
+            : "Failed to load personalities",
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
 
   const loadChats = async () => {
     try {
@@ -171,11 +235,14 @@ export function ChatProvider({ children }: ChatProviderProps) {
     }
   };
 
-  const createChat = async (title: string): Promise<string | null> => {
+  const createChat = async (
+    title: string,
+    personalityId?: string
+  ): Promise<string | null> => {
     try {
       dispatch({ type: "SET_LOADING", payload: true });
       dispatch({ type: "SET_ERROR", payload: null });
-      const newChat = await chatService.createChat(title);
+      const newChat = await chatService.createChat(title, personalityId);
 
       const currentChats = Array.isArray(state.chats) ? state.chats : [];
 
@@ -225,7 +292,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   const sendMessage = async (
     content: string,
-    chatId: string
+    chatId: string,
+    personalityId?: string
   ): Promise<void> => {
     try {
       dispatch({
@@ -266,7 +334,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
               streamedResponse: accumulatedResponse,
             },
           });
-        }
+        },
+        personalityId
       );
 
       // Add AI message with complete response
@@ -339,6 +408,31 @@ export function ChatProvider({ children }: ChatProviderProps) {
     }
   };
 
+  const updateChatPersonality = async (
+    chatId: string,
+    personalityId: string
+  ) => {
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "SET_ERROR", payload: null });
+      await chatService.updateChatPersonality(chatId, personalityId);
+      dispatch({
+        type: "UPDATE_CHAT_PERSONALITY",
+        payload: { chatId, personalityId },
+      });
+    } catch (error) {
+      dispatch({
+        type: "SET_ERROR",
+        payload:
+          error instanceof Error
+            ? error.message
+            : "Failed to update chat personality",
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
   const duplicateChat = async (chatId: string): Promise<string | null> => {
     try {
       dispatch({ type: "SET_LOADING", payload: true });
@@ -352,7 +446,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
       const newChat = await chatService.duplicateChat(
         chatId,
-        originalChat.title
+        originalChat.title,
+        originalChat.personality_id || "assistant"
       );
 
       // Add the new chat to the beginning of the list
@@ -376,6 +471,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
     }
   };
 
+  const setCurrentPersonality = (personality: Personality) => {
+    dispatch({ type: "SET_CURRENT_PERSONALITY", payload: personality });
+  };
+
   const actions = useMemo(
     () => ({
       createChat,
@@ -383,8 +482,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
       sendMessage,
       deleteChat,
       updateChatTitle,
+      updateChatPersonality,
       duplicateChat,
       loadChats,
+      loadPersonalities,
+      setCurrentPersonality,
     }),
     [state.chats]
   );

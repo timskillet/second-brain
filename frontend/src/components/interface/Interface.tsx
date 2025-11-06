@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import MessageInput from "./MessageInput";
-import type { FileIndex, IngestedFile } from "../../types";
+import PersonalitySelector from "./PersonalitySelector";
+import type { FileIndex, IngestedFile, Personality } from "../../types";
 import { useChat } from "../../contexts/ChatProvider";
 
 interface InterfaceProps {
@@ -35,6 +36,13 @@ const Interface: React.FC<InterfaceProps> = ({
     ? state.chatStreams[currentChatId]
     : null;
 
+  // Get current chat's personality
+  const currentChat = state.chats.find((chat) => chat.id === currentChatId);
+  const currentPersonality =
+    state.personalities.find(
+      (p) => p.id === (currentChat?.personality_id || "assistant")
+    ) || state.personalities[0];
+
   const handleStreamMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
 
@@ -46,14 +54,20 @@ const Interface: React.FC<InterfaceProps> = ({
       if (!activeChatId) {
         const title =
           messageText.slice(0, 50) + (messageText.length > 50 ? "..." : "");
-        const newChatId = await actions.createChat(title);
+        const personalityId = state.currentPersonality?.id || "assistant";
+        const newChatId = await actions.createChat(title, personalityId);
         if (!newChatId) {
           throw new Error("Failed to create chat");
         }
         activeChatId = newChatId;
         setCurrentChatId(newChatId);
       }
-      await actions.sendMessage(messageText, activeChatId);
+
+      const personalityId =
+        currentChat?.personality_id ||
+        state.currentPersonality?.id ||
+        "assistant";
+      await actions.sendMessage(messageText, activeChatId, personalityId);
     } catch (error) {
       console.error("Error streaming message:", error);
     } finally {
@@ -61,8 +75,30 @@ const Interface: React.FC<InterfaceProps> = ({
     }
   };
 
+  const handlePersonalityChange = (personality: Personality) => {
+    actions.setCurrentPersonality(personality);
+  };
+
   return (
     <div className="flex flex-col h-screen max-w-4xl mx-auto">
+      {/* Header with personality selector */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-600">
+        <div className="flex items-center space-x-4">
+          <h1 className="text-xl font-bold text-primary-text">Second Brain</h1>
+          {currentPersonality && (
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
+              <span>{currentPersonality.icon}</span>
+              <span>{currentPersonality.name}</span>
+            </div>
+          )}
+        </div>
+        <PersonalitySelector
+          chatId={currentChatId || undefined}
+          onPersonalityChange={handlePersonalityChange}
+          className="z-40"
+        />
+      </div>
+
       {/* Welcome message - only show when no messages */}
       {currentMessages.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
@@ -71,9 +107,15 @@ const Interface: React.FC<InterfaceProps> = ({
               Welcome to your Second Brain
             </h2>
             <p className="text-gray-600 mb-6">
-              I'm an AI assistant ready to help you with questions,
-              conversations, and more. Start by typing a message below!
+              I'm {currentPersonality?.name || "an AI assistant"} ready to help
+              you with questions, conversations, and more. Start by typing a
+              message below!
             </p>
+            {currentPersonality && (
+              <div className="text-sm text-gray-500">
+                {currentPersonality.description}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -96,7 +138,9 @@ const Interface: React.FC<InterfaceProps> = ({
               }`}
             >
               <div className="font-medium text-sm text-primary-text mb-1">
-                {message.role === "user" ? "You" : "AI"}
+                {message.role === "user"
+                  ? "You"
+                  : currentPersonality?.name || "AI"}
               </div>
               <div className="text-primary-text font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
                 {message.content}
@@ -109,7 +153,7 @@ const Interface: React.FC<InterfaceProps> = ({
             currentChatStreams.streamedResponse && (
               <div className="p-3 rounded-lg bg-hover mr-8">
                 <div className="font-medium text-sm text-primary-text mb-1">
-                  AI
+                  {currentPersonality?.name || "AI"}
                 </div>
                 <div className="text-primary-text font-mono text-sm whitespace-pre-wrap break-words overflow-hidden">
                   {currentChatStreams.streamedResponse}
